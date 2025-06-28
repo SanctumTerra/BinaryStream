@@ -3,7 +3,8 @@ const BinaryStream = @import("../../stream/BinaryStream.zig").BinaryStream;
 
 pub const Int8 = struct {
     pub fn write(stream: *BinaryStream, value: i8) void {
-        stream.write(&[_]u8{@intCast(value)});
+        // Convert to unsigned for bit representation, preserving the bit pattern
+        stream.write(&[_]u8{@bitCast(@as(u8, @bitCast(value)))});
     }
 
     pub fn read(stream: *BinaryStream) i8 {
@@ -12,7 +13,7 @@ pub const Int8 = struct {
             std.log.err("Cannot read int8: not enough bytes", .{});
             return 0;
         }
-        return @intCast(value[0]);
+        return @bitCast(value[0]);
     }
 };
 
