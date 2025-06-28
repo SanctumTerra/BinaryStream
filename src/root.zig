@@ -60,3 +60,69 @@ test {
     std.testing.refAllDecls(@import("types/float/Float32.zig"));
     std.testing.refAllDecls(@import("types/float/Float64.zig"));
 }
+
+test "binary stream basic read/write" {
+    const allocator = std.testing.allocator;
+    var stream = BinaryStream.init(allocator, null, null);
+    defer stream.deinit();
+
+    const endian = Endianess.Big;
+
+    // Write values
+    // Unsigned integers
+    stream.writeUint8(123);
+    stream.writeUint16(12345, endian);
+    stream.writeUint24(123456, endian);
+    stream.writeUint32(1234567890, endian);
+    stream.writeUint64(12345678901234, endian);
+    stream.writeULong(9876543210, endian);
+    stream.writeUShort(9876, endian);
+    stream.writeBool(true);
+    stream.writeBool(false);
+
+    // Signed integers
+    stream.writeByte(-123);
+    stream.writeInt8(-123);
+    stream.writeInt16(-12345, endian);
+    stream.writeInt24(-123456, endian);
+    stream.writeInt32(-1234567890, endian);
+    stream.writeInt64(-12345678901234, endian);
+    stream.writeLong(-9876543210, endian);
+    stream.writeShort(-9876, endian);
+
+    // Floats
+    stream.writeFloat32(3.14159, endian);
+    stream.writeFloat64(2.71828182846, endian);
+
+    // Reset offset for reading
+    stream.offset = 0;
+
+    // Read and verify values
+    // Unsigned integers
+    try std.testing.expectEqual(@as(u8, 123), stream.readUint8());
+    try std.testing.expectEqual(@as(u16, 12345), stream.readUint16(endian));
+    try std.testing.expectEqual(@as(u24, 123456), stream.readUint24(endian));
+    try std.testing.expectEqual(@as(u32, 1234567890), stream.readUint32(endian));
+    try std.testing.expectEqual(@as(u64, 12345678901234), stream.readUint64(endian));
+    try std.testing.expectEqual(@as(u64, 9876543210), stream.readULong(endian));
+    try std.testing.expectEqual(@as(u16, 9876), stream.readUShort(endian));
+    try std.testing.expectEqual(true, stream.readBool());
+    try std.testing.expectEqual(false, stream.readBool());
+
+    // Signed integers
+    try std.testing.expectEqual(@as(i8, -123), stream.readByte());
+    try std.testing.expectEqual(@as(i8, -123), stream.readInt8());
+    try std.testing.expectEqual(@as(i16, -12345), stream.readInt16(endian));
+    try std.testing.expectEqual(@as(i32, -123456), stream.readInt24(endian));
+    try std.testing.expectEqual(@as(i32, -1234567890), stream.readInt32(endian));
+    try std.testing.expectEqual(@as(i64, -12345678901234), stream.readInt64(endian));
+    try std.testing.expectEqual(@as(i64, -9876543210), stream.readLong(endian));
+    try std.testing.expectEqual(@as(i16, -9876), stream.readShort(endian));
+
+    // Floats
+    const epsilon32: f32 = 0.00001;
+    const epsilon64: f64 = 0.00000000001;
+
+    try std.testing.expectApproxEqAbs(@as(f32, 3.14159), stream.readFloat32(endian), epsilon32);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.71828182846), stream.readFloat64(endian), epsilon64);
+}
