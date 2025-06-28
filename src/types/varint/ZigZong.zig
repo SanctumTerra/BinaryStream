@@ -17,7 +17,7 @@ pub const ZigZong = struct {
     /// Reads a ZigZong-encoded signed 64-bit integer.
     /// First reads a VarLong, then decodes it from ZigZag encoding.
     pub fn read(self: *BinaryStream) i64 {
-        const value = VarLong.read(self, null);
+        const value = VarLong.read(self);
         return @as(i64, @bitCast(value >> 1)) ^ (-@as(i64, @intCast(value & 1)));
     }
 
@@ -25,7 +25,7 @@ pub const ZigZong = struct {
     /// First encodes the signed value to ZigZag, then writes it as a VarLong.
     pub fn write(self: *BinaryStream, value: i64) void {
         const encoded = @as(u64, @bitCast((value << 1) ^ (value >> 63)));
-        VarLong.write(self, encoded, null);
+        VarLong.write(self, encoded);
     }
 };
 

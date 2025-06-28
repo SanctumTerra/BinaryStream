@@ -15,7 +15,7 @@ pub const ZigZag = struct {
     /// Reads a ZigZag-encoded signed 32-bit integer.
     /// First reads a VarInt, then decodes it from ZigZag encoding.
     pub fn read(self: *BinaryStream) i32 {
-        const value = VarInt.read(self, null);
+        const value = VarInt.read(self);
         return @as(i32, @intCast(value >> 1)) ^ (-@as(i32, @intCast(value & 1)));
     }
 
@@ -23,7 +23,7 @@ pub const ZigZag = struct {
     /// First encodes the signed value to ZigZag, then writes it as a VarInt.
     pub fn write(self: *BinaryStream, value: i32) void {
         const encoded = @as(u32, @intCast((value << 1) ^ (value >> 31)));
-        VarInt.write(self, encoded, null);
+        VarInt.write(self, encoded);
     }
 };
 

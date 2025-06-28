@@ -14,14 +14,14 @@ pub const VarString = struct {
     /// Reads a string prefixed with a VarInt length.
     /// First reads the length as a VarInt, then reads that many bytes.
     pub fn read(stream: *BinaryStream) []const u8 {
-        const length = VarInt.read(stream, .Big);
+        const length = VarInt.read(stream);
         return stream.read(length);
     }
 
     /// Writes a string prefixed with a VarInt length.
     /// First writes the length as a VarInt, then writes the string data.
     pub fn write(stream: *BinaryStream, value: []const u8) void {
-        VarInt.write(stream, @intCast(value.len), .Big);
+        VarInt.write(stream, @intCast(value.len));
         stream.write(value);
     }
 };
