@@ -10,7 +10,11 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    b.addModule("BinaryStream", lib_mod);
+    _ = b.addModule("BinaryStream", .{
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
 
     const lib = b.addLibrary(.{
         .linkage = .static,
