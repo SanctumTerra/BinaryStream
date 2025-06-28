@@ -10,6 +10,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    b.addModule("BinaryStream", lib_mod);
+
     const lib = b.addLibrary(.{
         .linkage = .static,
         .name = "BinaryStream",
