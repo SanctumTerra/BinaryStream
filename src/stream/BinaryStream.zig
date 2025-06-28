@@ -33,6 +33,18 @@ pub const BinaryStream = struct {
         self.payload.deinit();
     }
 
+    /// Returns a slice to the current buffer without any allocation
+    pub fn getBuffer(self: *const BinaryStream) []const u8 {
+        return self.payload.items;
+    }
+
+    /// Returns an owned copy of the buffer
+    ///
+    /// Caller must free the returned slice
+    pub fn getBufferOwned(self: *const BinaryStream, allocator: std.mem.Allocator) ![]u8 {
+        return try allocator.dupe(u8, self.payload.items);
+    }
+
     /// Reads a specified number of bytes from the stream.
     ///
     /// If there are not enough bytes left, returns as many as possible.
