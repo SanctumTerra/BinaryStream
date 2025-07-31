@@ -256,7 +256,7 @@ pub const BinaryStream = struct {
     }
 
     pub fn readUint24(self: *BinaryStream, endian: Endianess) u24 {
-        const Uint24 = @import("../types/unsigned/Uint24.zig").Uint24;
+        const Uint24 = @import("../types/unsigned/UInt24.zig").Uint24;
         return Uint24.read(self, endian);
     }
 
