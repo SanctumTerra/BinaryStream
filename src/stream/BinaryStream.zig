@@ -121,7 +121,7 @@ pub const BinaryStream = struct {
     }
 
     pub fn writeUint24(self: *BinaryStream, value: u24, endian: Endianess) void {
-        const Uint24 = @import("../types/unsigned/Uint24.zig").Uint24;
+        const Uint24 = @import("../types/unsigned/UInt24.zig").Uint24;
         Uint24.write(self, value, endian);
     }
 
