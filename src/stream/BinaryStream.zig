@@ -199,7 +199,7 @@ pub const BinaryStream = struct {
 
     pub fn writeVarLong(self: *BinaryStream, value: u64) void {
         const VarLong = @import("../types/varint/VarLong.zig").VarLong;
-        VarLong.write(self, value, null);
+        VarLong.write(self, value);
     }
 
     pub fn writeZigZag(self: *BinaryStream, value: i32) void {
@@ -228,9 +228,9 @@ pub const BinaryStream = struct {
         VarString.write(self, value);
     }
 
-    pub fn writeUuid(self: *BinaryStream, value: [16]u8) void {
+    pub fn writeUuid(self: *BinaryStream, value: []const u8) !void {
         const Uuid = @import("../types/string/Uuid.zig").Uuid;
-        Uuid.write(self, value);
+        try Uuid.write(self, value);
     }
 
     // Float write methods
@@ -334,7 +334,7 @@ pub const BinaryStream = struct {
 
     pub fn readVarLong(self: *BinaryStream) u64 {
         const VarLong = @import("../types/varint/VarLong.zig").VarLong;
-        return VarLong.read(self, null);
+        return VarLong.read(self);
     }
 
     pub fn readZigZag(self: *BinaryStream) i32 {
@@ -363,7 +363,7 @@ pub const BinaryStream = struct {
         return VarString.read(self);
     }
 
-    pub fn readUuid(self: *BinaryStream) [16]u8 {
+    pub fn readUuid(self: *BinaryStream) []const u8 {
         const Uuid = @import("../types/string/Uuid.zig").Uuid;
         return Uuid.read(self);
     }
