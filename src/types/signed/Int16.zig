@@ -3,18 +3,18 @@ const BinaryStream = @import("../../stream/BinaryStream.zig").BinaryStream;
 const Endianess = @import("../../enums/Endianess.zig").Endianess;
 
 pub const Int16 = struct {
-    pub fn write(stream: *BinaryStream, value: i16, endianess: ?Endianess) void {
+    pub fn write(stream: *BinaryStream, value: i16, endianess: ?Endianess) !void {
         switch (endianess orelse .Big) {
             .Little => {
-                stream.write(&[_]u8{ @intCast(value & 0xFF), @intCast((value >> 8) & 0xFF) });
+                try stream.write(&[_]u8{ @intCast(value & 0xFF), @intCast((value >> 8) & 0xFF) });
             },
             .Big => {
-                stream.write(&[_]u8{ @intCast((value >> 8) & 0xFF), @intCast(value & 0xFF) });
+                try stream.write(&[_]u8{ @intCast((value >> 8) & 0xFF), @intCast(value & 0xFF) });
             },
         }
     }
 
-    pub fn read(stream: *BinaryStream, endianess: ?Endianess) i16 {
+    pub fn read(stream: *BinaryStream, endianess: ?Endianess) !i16 {
         const value = stream.read(2);
         if (value.len < 2) {
             std.log.err("Cannot read int16: not enough bytes", .{});
@@ -40,12 +40,12 @@ test "Int16 read/write" {
 
     // Test writing a value
     const test_value: i16 = 42;
-    Int16.write(&stream, test_value, .Big);
+    try Int16.write(&stream, test_value, .Big);
 
     // Reset offset to read from the beginning
     stream.offset = 0;
 
     // Test reading the value
-    const read_value = Int16.read(&stream, .Big);
+    const read_value = try Int16.read(&stream, .Big);
     try std.testing.expectEqual(test_value, read_value);
 }
