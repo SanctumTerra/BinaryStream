@@ -2,11 +2,11 @@ const std = @import("std");
 const BinaryStream = @import("../../stream/BinaryStream.zig").BinaryStream;
 
 pub const Uint8 = struct {
-    pub fn write(stream: *BinaryStream, value: u8) void {
-        stream.write(&[_]u8{value});
+    pub fn write(stream: *BinaryStream, value: u8) !void {
+        try stream.write(&[_]u8{value});
     }
 
-    pub fn read(stream: *BinaryStream) u8 {
+    pub fn read(stream: *BinaryStream) !u8 {
         const value = stream.read(1);
         if (value.len < 1) {
             std.log.err("Cannot read uint8: not enough bytes", .{});
@@ -24,12 +24,12 @@ test "UInt8 read/write" {
 
     // Test writing a value
     const test_value: u8 = 42;
-    Uint8.write(&stream, test_value);
+    try Uint8.write(&stream, test_value);
 
     // Reset offset to read from the beginning
     stream.offset = 0;
 
     // Test reading the value
-    const read_value = Uint8.read(&stream);
+    const read_value = try Uint8.read(&stream);
     try std.testing.expectEqual(test_value, read_value);
 }
