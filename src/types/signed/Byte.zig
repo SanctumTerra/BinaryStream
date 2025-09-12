@@ -3,12 +3,12 @@ const BinaryStream = @import("../../stream/BinaryStream.zig").BinaryStream;
 const Int8 = @import("../../types/signed/Int8.zig").Int8;
 
 pub const Byte = struct {
-    pub fn write(stream: *BinaryStream, value: i8) void {
-        Int8.write(stream, value);
+    pub fn write(stream: *BinaryStream, value: i8) !void {
+        try Int8.write(stream, value);
     }
 
-    pub fn read(stream: *BinaryStream) i8 {
-        return Int8.read(stream);
+    pub fn read(stream: *BinaryStream) !i8 {
+        return try Int8.read(stream);
     }
 };
 
@@ -20,11 +20,11 @@ test "Byte read/write" {
 
     // Test writing a value
     const test_value: i8 = 42;
-    Byte.write(&stream, test_value);
+    try Byte.write(&stream, test_value);
     // Reset offset to read from the beginning
     stream.offset = 0;
 
     // Test reading the value
-    const read_value = Byte.read(&stream);
+    const read_value = try Byte.read(&stream);
     try std.testing.expectEqual(test_value, read_value);
 }
