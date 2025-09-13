@@ -3,10 +3,10 @@ const BinaryStream = @import("../../stream/BinaryStream.zig").BinaryStream;
 const Endianess = @import("../../enums/Endianess.zig").Endianess;
 
 pub const Int64 = struct {
-    pub fn write(stream: *BinaryStream, value: i64, endianess: ?Endianess) void {
+    pub fn write(stream: *BinaryStream, value: i64, endianess: ?Endianess) !void {
         switch (endianess orelse .Big) {
             .Little => {
-                stream.write(
+                try stream.write(
                     &[_]u8{
                         @intCast(value & 0xFF),
                         @intCast((value >> 8) & 0xFF),
@@ -20,7 +20,7 @@ pub const Int64 = struct {
                 );
             },
             .Big => {
-                stream.write(
+                try stream.write(
                     &[_]u8{
                         @intCast((value >> 56) & 0xFF),
                         @intCast((value >> 48) & 0xFF),
@@ -36,7 +36,7 @@ pub const Int64 = struct {
         }
     }
 
-    pub fn read(stream: *BinaryStream, endianess: ?Endianess) i64 {
+    pub fn read(stream: *BinaryStream, endianess: ?Endianess) !i64 {
         const value = stream.read(8);
         if (value.len < 8) {
             std.log.err("Cannot read int64: not enough bytes", .{});
@@ -61,12 +61,12 @@ test "Int64 read/write" {
 
     // Test writing a value
     const test_value: i64 = 42;
-    Int64.write(&stream, test_value, .Big);
+    try Int64.write(&stream, test_value, .Big);
 
     // Reset offset to read from the beginning
     stream.offset = 0;
 
     // Test reading the value
-    const read_value = Int64.read(&stream, .Big);
+    const read_value = try Int64.read(&stream, .Big);
     try std.testing.expectEqual(test_value, read_value);
 }
