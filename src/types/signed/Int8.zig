@@ -7,11 +7,10 @@ pub const Int8 = struct {
         try stream.write(&[_]u8{@bitCast(@as(u8, @bitCast(value)))});
     }
 
-    pub fn read(stream: *BinaryStream) !i8 {
+    pub fn read(stream: *BinaryStream) error{NotEnoughBytes}!i8 {
         const value = stream.read(1);
         if (value.len < 1) {
-            std.log.err("Cannot read int8: not enough bytes", .{});
-            return 0;
+            return error.NotEnoughBytes;
         }
         return @bitCast(value[0]);
     }
