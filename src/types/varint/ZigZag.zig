@@ -14,16 +14,16 @@ const VarInt = @import("VarInt.zig").VarInt;
 pub const ZigZag = struct {
     /// Reads a ZigZag-encoded signed 32-bit integer.
     /// First reads a VarInt, then decodes it from ZigZag encoding.
-    pub fn read(self: *BinaryStream) i32 {
-        const value = VarInt.read(self);
+    pub fn read(self: *BinaryStream) !i32 {
+        const value = try VarInt.read(self);
         return @as(i32, @intCast(value >> 1)) ^ (-@as(i32, @intCast(value & 1)));
     }
 
     /// Writes a signed 32-bit integer using ZigZag encoding.
     /// First encodes the signed value to ZigZag, then writes it as a VarInt.
-    pub fn write(self: *BinaryStream, value: i32) void {
+    pub fn write(self: *BinaryStream, value: i32) !void {
         const encoded = @as(u32, @intCast((value << 1) ^ (value >> 31)));
-        VarInt.write(self, encoded);
+        try VarInt.write(self, encoded);
     }
 };
 
@@ -44,13 +44,13 @@ test "ZigZag read/write" {
         stream.offset = 0;
 
         // Write the value
-        ZigZag.write(&stream, test_value);
+        try ZigZag.write(&stream, test_value);
 
         // Reset offset to read from the beginning
         stream.offset = 0;
 
         // Read the value
-        const read_value = ZigZag.read(&stream);
+        const read_value = try ZigZag.read(&stream);
         try std.testing.expectEqual(test_value, read_value);
     }
 }
