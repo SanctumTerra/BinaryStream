@@ -6,11 +6,10 @@ pub const Uint8 = struct {
         try stream.write(&[_]u8{value});
     }
 
-    pub fn read(stream: *BinaryStream) !u8 {
+    pub fn read(stream: *BinaryStream) error{NotEnoughBytes}!u8 {
         const value = stream.read(1);
         if (value.len < 1) {
-            std.log.err("Cannot read uint8: not enough bytes", .{});
-            return 0;
+            return error.NotEnoughBytes;
         }
         return value[0];
     }
