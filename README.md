@@ -3,7 +3,20 @@
 <p align="center" style="font-size: 24px;" > A fast, reliable, easy to use data manipulation library for Zig. <p>
 
 ----
+<p align="center" style="color: #ffffffff; font-size: 48px; padding-top: 10%;"> Instalation  </p> 
 
+```sh
+zig fetch --save git+https://github.com/SanctumTerra/BinaryStream#master
+```
+
+<p> Now we add it to build.zig </p>
+
+```ts
+const binarystream_dep = b.dependency("BinaryStream", .{});
+exe.root_module.addImport("BinaryStream", binarystream_dep.module("BinaryStream"));
+```
+
+----
 
 <p align="center" style="color: #ffffffff; font-size: 48px; padding-top: 10%;"> Usage  </p> 
 
