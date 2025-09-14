@@ -26,11 +26,10 @@ pub const Int24 = struct {
         }
     }
 
-    pub fn read(stream: *BinaryStream, endianess: ?Endianess) !i32 {
+    pub fn read(stream: *BinaryStream, endianess: ?Endianess) error{NotEnoughBytes}!i32 {
         const value = stream.read(3);
         if (value.len < 3) {
-            std.log.err("Cannot read int24: not enough bytes", .{});
-            return 0;
+            return error.NotEnoughBytes;
         }
 
         var result: i32 = 0;
