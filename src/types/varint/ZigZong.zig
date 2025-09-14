@@ -16,16 +16,16 @@ const VarLong = @import("VarLong.zig").VarLong;
 pub const ZigZong = struct {
     /// Reads a ZigZong-encoded signed 64-bit integer.
     /// First reads a VarLong, then decodes it from ZigZag encoding.
-    pub fn read(self: *BinaryStream) i64 {
-        const value = VarLong.read(self);
+    pub fn read(self: *BinaryStream) !i64 {
+        const value = try VarLong.read(self);
         return @as(i64, @bitCast(value >> 1)) ^ (-@as(i64, @intCast(value & 1)));
     }
 
     /// Writes a signed 64-bit integer using ZigZag encoding.
     /// First encodes the signed value to ZigZag, then writes it as a VarLong.
-    pub fn write(self: *BinaryStream, value: i64) void {
+    pub fn write(self: *BinaryStream, value: i64) !void {
         const encoded = @as(u64, @bitCast((value << 1) ^ (value >> 63)));
-        VarLong.write(self, encoded);
+        try VarLong.write(self, encoded);
     }
 };
 
@@ -46,13 +46,13 @@ test "ZigZong read/write" {
         stream.offset = 0;
 
         // Write the value
-        ZigZong.write(&stream, test_value);
+        try ZigZong.write(&stream, test_value);
 
         // Reset offset to read from the beginning
         stream.offset = 0;
 
         // Read the value
-        const read_value = ZigZong.read(&stream);
+        const read_value = try ZigZong.read(&stream);
         try std.testing.expectEqual(test_value, read_value);
     }
 }
