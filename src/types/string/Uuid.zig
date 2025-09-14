@@ -11,7 +11,7 @@ pub const Uuid = struct {
     /// Reads a 128-bit (16 bytes) UUID from the stream and returns it as a formatted string.
     /// Caller is responsible for freeing the returned string using the stream's allocator.
     /// If there's an error reading the UUID, returns a default all-zero UUID and logs the error.
-    pub fn read(stream: *BinaryStream) []const u8 {
+    pub fn read(stream: *BinaryStream) ![]const u8 {
         // Read the first 8 bytes
         const bytes_m = stream.read(8);
         if (bytes_m.len < 8) {
@@ -142,8 +142,8 @@ pub const Uuid = struct {
             i += 2;
         }
 
-        stream.write(&bytes_m);
-        stream.write(&bytes_l);
+        try stream.write(&bytes_m);
+        try stream.write(&bytes_l);
     }
 };
 
@@ -159,7 +159,7 @@ test "UUID read/write" {
 
     // Reset offset to read from the beginning
     stream.offset = 0;
-    const read_value = Uuid.read(&stream);
+    const read_value = try Uuid.read(&stream);
 
     if (!std.mem.eql(u8, read_value, "00000000-0000-0000-0000-000000000000")) {
         defer std.testing.allocator.free(read_value);
