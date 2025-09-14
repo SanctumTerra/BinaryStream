@@ -20,8 +20,7 @@ pub const VarLong = struct {
         while (true) {
             const bytes = self.read(1);
             if (bytes.len < 1) {
-                std.log.err("Cannot read VarLong: not enough bytes", .{});
-                return 0;
+                return error.NotEnoughBytes;
             }
 
             const current_byte = bytes[0];
@@ -37,8 +36,7 @@ pub const VarLong = struct {
                 8 => 56,
                 9 => 63,
                 else => {
-                    std.log.err("VarLong is too big", .{});
-                    return 0;
+                    return error.VarLongTooBig;
                 },
             };
 
@@ -46,8 +44,7 @@ pub const VarLong = struct {
             size +%= 1;
 
             if (size > 10) {
-                std.log.err("VarLong is too big", .{});
-                return 0;
+                return error.VarLongTooBig;
             }
 
             if (current_byte & 0x80 != 0x80) break;
