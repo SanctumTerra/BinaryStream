@@ -25,8 +25,7 @@ pub const Uint32 = struct {
     pub fn read(stream: *BinaryStream, endianess: ?Endianess) !u32 {
         const bytes = stream.read(4);
         if (bytes.len < 4) {
-            std.log.err("Cannot read uint32: not enough bytes", .{});
-            return 0;
+            return error.NotEnoughBytes;
         }
         return switch (endianess orelse .Big) {
             .Little => @as(u32, @intCast(bytes[0])) | (@as(u32, @intCast(bytes[1])) << 8) | (@as(u32, @intCast(bytes[2])) << 16) | (@as(u32, @intCast(bytes[3])) << 24),
