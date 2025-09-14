@@ -9,7 +9,7 @@ const Endianess = @import("../../enums/Endianess.zig").Endianess;
 /// Supports both big-endian and little-endian byte ordering.
 pub const Float32 = struct {
     /// Reads a 32-bit floating-point value from the stream.
-    pub fn read(stream: *BinaryStream, endianess: ?Endianess) f32 {
+    pub fn read(stream: *BinaryStream, endianess: ?Endianess) !f32 {
         const bytes = stream.read(4);
         if (bytes.len < 4) {
             std.log.err("Cannot read float32: not enough bytes", .{});
@@ -36,7 +36,7 @@ pub const Float32 = struct {
     }
 
     /// Writes a 32-bit floating-point value to the stream.
-    pub fn write(stream: *BinaryStream, value: f32, endianess: ?Endianess) void {
+    pub fn write(stream: *BinaryStream, value: f32, endianess: ?Endianess) !void {
         const bits: u32 = @bitCast(value);
         var bytes: [4]u8 = undefined;
 
@@ -55,7 +55,7 @@ pub const Float32 = struct {
             },
         }
 
-        stream.write(&bytes);
+        try stream.write(&bytes);
     }
 };
 
@@ -67,12 +67,12 @@ test "Float32 read/write" {
 
     // Test writing a value
     const test_value: f32 = 3.14159;
-    Float32.write(&stream, test_value, .Big);
+    try Float32.write(&stream, test_value, .Big);
 
     // Reset offset to read from the beginning
     stream.offset = 0;
 
     // Test reading the value
-    const read_value = Float32.read(&stream, .Big);
+    const read_value = try Float32.read(&stream, .Big);
     try std.testing.expectEqual(test_value, read_value);
 }
