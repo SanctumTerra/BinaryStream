@@ -70,59 +70,104 @@ test "binary stream basic read/write" {
 
     // Write values
     // Unsigned integers
-    stream.writeUint8(123);
-    stream.writeUint16(12345, endian);
-    stream.writeUint24(123456, endian);
-    stream.writeUint32(1234567890, endian);
-    stream.writeUint64(12345678901234, endian);
-    stream.writeULong(9876543210, endian);
-    stream.writeUShort(9876, endian);
-    stream.writeBool(true);
-    stream.writeBool(false);
+    try stream.writeUint8(123);
+    try stream.writeUint16(12345, endian);
+    try stream.writeUint24(123456, endian);
+    try stream.writeUint32(1234567890, endian);
+    try stream.writeUint64(12345678901234, endian);
+    try stream.writeULong(9876543210, endian);
+    try stream.writeUShort(9876, endian);
+    try stream.writeBool(true);
+    try stream.writeBool(false);
 
     // Signed integers
-    stream.writeByte(-123);
-    stream.writeInt8(-123);
-    stream.writeInt16(-12345, endian);
-    stream.writeInt24(-123456, endian);
-    stream.writeInt32(-1234567890, endian);
-    stream.writeInt64(-12345678901234, endian);
-    stream.writeLong(-9876543210, endian);
-    stream.writeShort(-9876, endian);
+    try stream.writeByte(-123);
+    try stream.writeInt8(-123);
+    try stream.writeInt16(-12345, endian);
+    try stream.writeInt24(-123456, endian);
+    try stream.writeInt32(-1234567890, endian);
+    try stream.writeInt64(-12345678901234, endian);
+    try stream.writeLong(-9876543210, endian);
+    try stream.writeShort(-9876, endian);
 
     // Floats
-    stream.writeFloat32(3.14159, endian);
-    stream.writeFloat64(2.71828182846, endian);
+    try stream.writeFloat32(3.14159, endian);
+    try stream.writeFloat64(2.71828182846, endian);
 
     // Reset offset for reading
     stream.offset = 0;
 
     // Read and verify values
     // Unsigned integers
-    try std.testing.expectEqual(@as(u8, 123), stream.readUint8());
-    try std.testing.expectEqual(@as(u16, 12345), stream.readUint16(endian));
-    try std.testing.expectEqual(@as(u24, 123456), stream.readUint24(endian));
-    try std.testing.expectEqual(@as(u32, 1234567890), stream.readUint32(endian));
-    try std.testing.expectEqual(@as(u64, 12345678901234), stream.readUint64(endian));
-    try std.testing.expectEqual(@as(u64, 9876543210), stream.readULong(endian));
-    try std.testing.expectEqual(@as(u16, 9876), stream.readUShort(endian));
-    try std.testing.expectEqual(true, stream.readBool());
-    try std.testing.expectEqual(false, stream.readBool());
+    try std.testing.expectEqual(@as(u8, 123), try stream.readUint8());
+    try std.testing.expectEqual(@as(u16, 12345), try stream.readUint16(endian));
+    try std.testing.expectEqual(@as(u24, 123456), try stream.readUint24(endian));
+    try std.testing.expectEqual(@as(u32, 1234567890), try stream.readUint32(endian));
+    try std.testing.expectEqual(@as(u64, 12345678901234), try stream.readUint64(endian));
+    try std.testing.expectEqual(@as(u64, 9876543210), try stream.readULong(endian));
+    try std.testing.expectEqual(@as(u16, 9876), try stream.readUShort(endian));
+    try std.testing.expectEqual(true, try stream.readBool());
+    try std.testing.expectEqual(false, try stream.readBool());
 
     // Signed integers
-    try std.testing.expectEqual(@as(i8, -123), stream.readByte());
-    try std.testing.expectEqual(@as(i8, -123), stream.readInt8());
-    try std.testing.expectEqual(@as(i16, -12345), stream.readInt16(endian));
-    try std.testing.expectEqual(@as(i32, -123456), stream.readInt24(endian));
-    try std.testing.expectEqual(@as(i32, -1234567890), stream.readInt32(endian));
-    try std.testing.expectEqual(@as(i64, -12345678901234), stream.readInt64(endian));
-    try std.testing.expectEqual(@as(i64, -9876543210), stream.readLong(endian));
-    try std.testing.expectEqual(@as(i16, -9876), stream.readShort(endian));
+    try std.testing.expectEqual(@as(i8, -123), try stream.readByte());
+    try std.testing.expectEqual(@as(i8, -123), try stream.readInt8());
+    try std.testing.expectEqual(@as(i16, -12345), try stream.readInt16(endian));
+    try std.testing.expectEqual(@as(i32, -123456), try stream.readInt24(endian));
+    try std.testing.expectEqual(@as(i32, -1234567890), try stream.readInt32(endian));
+    try std.testing.expectEqual(@as(i64, -12345678901234), try stream.readInt64(endian));
+    try std.testing.expectEqual(@as(i64, -9876543210), try stream.readLong(endian));
+    try std.testing.expectEqual(@as(i16, -9876), try stream.readShort(endian));
 
     // Floats
     const epsilon32: f32 = 0.00001;
     const epsilon64: f64 = 0.00000000001;
 
-    try std.testing.expectApproxEqAbs(@as(f32, 3.14159), stream.readFloat32(endian), epsilon32);
-    try std.testing.expectApproxEqAbs(@as(f64, 2.71828182846), stream.readFloat64(endian), epsilon64);
+    try std.testing.expectApproxEqAbs(@as(f32, 3.14159), try stream.readFloat32(endian), epsilon32);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.71828182846), try stream.readFloat64(endian), epsilon64);
+}
+
+test "Packet" {
+    var stream = BinaryStream.init(std.testing.allocator, null, null);
+    defer stream.deinit();
+
+    // Write a packet ID as VarInt
+    const packet_id: u32 = 0x1234;
+    try VarInt.write(&stream, packet_id);
+    // Write some data (e.g., a string)
+    const test_string = "Hello, World!";
+    try VarString.write(&stream, test_string);
+    // Write some long string
+    const long_string = "Earth is the third planet from the Sun and the only astronomical object known to harbor life. This is enabled by Earth being an ocean world, the only one in the Solar System sustaining liquid surface water. Almost all of Earth's water is contained in its global ocean, covering 70.8% of Earth's crust. The remaining 29.2% of Earth's crust is land, most of which is located in the form of continental landmasses within Earth's land hemisphere. Most of Earth's land is at least somewhat humid and covered by vegetation, while large ice sheets at Earth's polar deserts retain more water than Earth's groundwater, lakes, rivers, and atmospheric water combined. Earth's crust consists of slowly moving tectonic plates, which interact to produce mountain ranges, volcanoes, and earthquakes. Earth has a liquid outer core that generates a magnetosphere capable of deflecting most of the destructive solar winds and cosmic radiation.";
+    try VarString.write(&stream, long_string);
+
+    for (0..10) |i| {
+        _ = i;
+        try VarString.write(&stream, long_string);
+    }
+
+    // Reset offset for reading
+    stream.offset = 0;
+
+    // Read and verify packet ID
+    const read_packet_id = try VarInt.read(&stream);
+    const read_string = try VarString.read(&stream);
+    const read_long_string = try VarString.read(&stream);
+
+    try std.testing.expectEqual(packet_id, read_packet_id);
+    try std.testing.expectEqualStrings(test_string, read_string);
+    try std.testing.expectEqualStrings(long_string, read_long_string);
+
+    for (0..10) |i| {
+        _ = i;
+        const str = try VarString.read(&stream);
+        try std.testing.expectEqualStrings(long_string, str);
+    }
+
+    std.debug.print("-- Packet read/write test passed --\n", .{});
+    std.debug.print("Packet ID: {d}\n", .{read_packet_id});
+    std.debug.print("Test String: {s}\n", .{read_string});
+    std.debug.print("Long String: {s}\n", .{read_long_string});
+    std.debug.print("Total bytes in stream: {d}\n", .{stream.payload.items.len});
+    std.debug.print("-------------------------------\n", .{});
 }
