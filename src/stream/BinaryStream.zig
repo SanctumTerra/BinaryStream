@@ -7,15 +7,17 @@ pub const BinaryStream = struct {
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator, payload: ?[]const u8, offset: ?usize) BinaryStream {
-        var array_list = std.ArrayList(u8).init(allocator);
+        const buffer: []u8 = &[_]u8{};
+
+        var array_list = std.ArrayList(u8).initBuffer(buffer);
 
         // If payload is provided, append it to the ArrayList
         if (payload) |data| {
-            array_list.appendSlice(data) catch |err| {
+            array_list.appendSlice(allocator, data) catch |err| {
                 std.debug.print("Failed to initialize binary stream: {}\n", .{err});
                 return BinaryStream{
                     .allocator = allocator,
-                    .payload = std.ArrayList(u8).init(allocator),
+                    .payload = std.ArrayList(u8).initBuffer(buffer),
                     .offset = offset orelse 0,
                 };
             };
@@ -30,7 +32,7 @@ pub const BinaryStream = struct {
 
     /// Frees all memory allocated by this BinaryStream
     pub fn deinit(self: *BinaryStream) void {
-        self.payload.deinit();
+        self.payload.deinit(self.allocator);
     }
 
     /// Returns a slice to the current buffer without any allocation
@@ -72,23 +74,17 @@ pub const BinaryStream = struct {
     /// Writes a byte slice to the stream at the current offset.
     ///
     /// If the offset is beyond the current payload size, it will grow the payload.
-    pub fn write(self: *BinaryStream, value: []const u8) void {
+    pub fn write(self: *BinaryStream, value: []const u8) !void {
         // If we're writing past the end of the current buffer, we need to expand
         if (self.offset > self.payload.items.len) {
             // Add padding zeros to reach the offset
             const padding_needed = self.offset - self.payload.items.len;
-            self.payload.appendNTimes(0, padding_needed) catch |err| {
-                std.log.err("Failed to grow payload: {}", .{err});
-                return;
-            };
+            try self.payload.appendNTimes(self.allocator, 0, padding_needed);
         }
 
         if (self.offset == self.payload.items.len) {
             // Appending at the end
-            self.payload.appendSlice(value) catch |err| {
-                std.log.err("Failed to append to payload: {}", .{err});
-                return;
-            };
+            try self.payload.appendSlice(self.allocator, value);
             self.offset += value.len;
         } else {
             // Writing within the existing buffer
@@ -97,10 +93,7 @@ pub const BinaryStream = struct {
             if (end_pos > self.payload.items.len) {
                 // Need to grow the buffer to fit the entire value
                 const additional_bytes = end_pos - self.payload.items.len;
-                self.payload.appendNTimes(0, additional_bytes) catch |err| {
-                    std.log.err("Failed to grow payload: {}", .{err});
-                    return;
-                };
+                try self.payload.appendNTimes(self.allocator, 0, additional_bytes);
             }
 
             // Copy the value into the buffer
@@ -110,122 +103,122 @@ pub const BinaryStream = struct {
     }
 
     // Unsigned integer write methods
-    pub fn writeUint8(self: *BinaryStream, value: u8) void {
+    pub fn writeUint8(self: *BinaryStream, value: u8) !void {
         const Uint8 = @import("../types/unsigned/UInt8.zig").Uint8;
-        Uint8.write(self, value);
+        try Uint8.write(self, value);
     }
 
-    pub fn writeUint16(self: *BinaryStream, value: u16, endian: Endianess) void {
+    pub fn writeUint16(self: *BinaryStream, value: u16, endian: Endianess) !void {
         const Uint16 = @import("../types/unsigned/UInt16.zig").Uint16;
-        Uint16.write(self, value, endian);
+        try Uint16.write(self, value, endian);
     }
 
-    pub fn writeUint24(self: *BinaryStream, value: u24, endian: Endianess) void {
+    pub fn writeUint24(self: *BinaryStream, value: u24, endian: Endianess) !void {
         const Uint24 = @import("../types/unsigned/UInt24.zig").Uint24;
-        Uint24.write(self, value, endian);
+        try Uint24.write(self, value, endian);
     }
 
-    pub fn writeUint32(self: *BinaryStream, value: u32, endian: Endianess) void {
+    pub fn writeUint32(self: *BinaryStream, value: u32, endian: Endianess) !void {
         const Uint32 = @import("../types/unsigned/UInt32.zig").Uint32;
-        Uint32.write(self, value, endian);
+        try Uint32.write(self, value, endian);
     }
 
-    pub fn writeUint64(self: *BinaryStream, value: u64, endian: Endianess) void {
+    pub fn writeUint64(self: *BinaryStream, value: u64, endian: Endianess) !void {
         const Uint64 = @import("../types/unsigned/UInt64.zig").Uint64;
-        Uint64.write(self, value, endian);
+        try Uint64.write(self, value, endian);
     }
 
-    pub fn writeULong(self: *BinaryStream, value: u64, endian: Endianess) void {
+    pub fn writeULong(self: *BinaryStream, value: u64, endian: Endianess) !void {
         const ULong = @import("../types/unsigned/ULong.zig").ULong;
-        ULong.write(self, value, endian);
+        try ULong.write(self, value, endian);
     }
 
-    pub fn writeUShort(self: *BinaryStream, value: u16, endian: Endianess) void {
+    pub fn writeUShort(self: *BinaryStream, value: u16, endian: Endianess) !void {
         const UShort = @import("../types/unsigned/UShort.zig").UShort;
-        UShort.write(self, value, endian);
+        try UShort.write(self, value, endian);
     }
 
-    pub fn writeBool(self: *BinaryStream, value: bool) void {
+    pub fn writeBool(self: *BinaryStream, value: bool) !void {
         const Bool = @import("../types/unsigned/Bool.zig").Bool;
-        Bool.write(self, value);
+        try Bool.write(self, value);
     }
 
     // Signed integer write methods
-    pub fn writeByte(self: *BinaryStream, value: i8) void {
+    pub fn writeByte(self: *BinaryStream, value: i8) !void {
         const Byte = @import("../types/signed/Byte.zig").Byte;
-        Byte.write(self, value);
+        try Byte.write(self, value);
     }
 
-    pub fn writeInt8(self: *BinaryStream, value: i8) void {
+    pub fn writeInt8(self: *BinaryStream, value: i8) !void {
         const Int8 = @import("../types/signed/Int8.zig").Int8;
-        Int8.write(self, value);
+        try Int8.write(self, value);
     }
 
-    pub fn writeInt16(self: *BinaryStream, value: i16, endian: Endianess) void {
+    pub fn writeInt16(self: *BinaryStream, value: i16, endian: Endianess) !void {
         const Int16 = @import("../types/signed/Int16.zig").Int16;
-        Int16.write(self, value, endian);
+        try Int16.write(self, value, endian);
     }
 
-    pub fn writeInt24(self: *BinaryStream, value: i32, endian: Endianess) void {
+    pub fn writeInt24(self: *BinaryStream, value: i32, endian: Endianess) !void {
         const Int24 = @import("../types/signed/Int24.zig").Int24;
-        Int24.write(self, value, endian);
+        try Int24.write(self, value, endian);
     }
 
-    pub fn writeInt32(self: *BinaryStream, value: i32, endian: Endianess) void {
+    pub fn writeInt32(self: *BinaryStream, value: i32, endian: Endianess) !void {
         const Int32 = @import("../types/signed/Int32.zig").Int32;
-        Int32.write(self, value, endian);
+        try Int32.write(self, value, endian);
     }
 
-    pub fn writeInt64(self: *BinaryStream, value: i64, endian: Endianess) void {
+    pub fn writeInt64(self: *BinaryStream, value: i64, endian: Endianess) !void {
         const Int64 = @import("../types/signed/Int64.zig").Int64;
-        Int64.write(self, value, endian);
+        try Int64.write(self, value, endian);
     }
 
-    pub fn writeLong(self: *BinaryStream, value: i64, endian: Endianess) void {
+    pub fn writeLong(self: *BinaryStream, value: i64, endian: Endianess) !void {
         const Long = @import("../types/signed/Long.zig").Long;
-        Long.write(self, value, endian);
+        try Long.write(self, value, endian);
     }
 
-    pub fn writeShort(self: *BinaryStream, value: i16, endian: Endianess) void {
+    pub fn writeShort(self: *BinaryStream, value: i16, endian: Endianess) !void {
         const Short = @import("../types/signed/Short.zig").Short;
-        Short.write(self, value, endian);
+        try Short.write(self, value, endian);
     }
 
     // Variable-length integer write methods
-    pub fn writeVarInt(self: *BinaryStream, value: u32) void {
+    pub fn writeVarInt(self: *BinaryStream, value: u32) !void {
         const VarInt = @import("../types/varint/VarInt.zig").VarInt;
-        VarInt.write(self, value);
+        try VarInt.write(self, value);
     }
 
-    pub fn writeVarLong(self: *BinaryStream, value: u64) void {
+    pub fn writeVarLong(self: *BinaryStream, value: u64) !void {
         const VarLong = @import("../types/varint/VarLong.zig").VarLong;
-        VarLong.write(self, value);
+        try VarLong.write(self, value);
     }
 
-    pub fn writeZigZag(self: *BinaryStream, value: i32) void {
+    pub fn writeZigZag(self: *BinaryStream, value: i32) !void {
         const ZigZag = @import("../types/varint/ZigZag.zig").ZigZag;
-        ZigZag.write(self, value);
+        try ZigZag.write(self, value);
     }
 
-    pub fn writeZigZong(self: *BinaryStream, value: i64) void {
+    pub fn writeZigZong(self: *BinaryStream, value: i64) !void {
         const ZigZong = @import("../types/varint/ZigZong.zig").ZigZong;
-        ZigZong.write(self, value);
+        try ZigZong.write(self, value);
     }
 
     // String write methods
-    pub fn writeString16(self: *BinaryStream, value: []const u8, endian: Endianess) void {
+    pub fn writeString16(self: *BinaryStream, value: []const u8, endian: Endianess) !void {
         const String16 = @import("../types/string/String16.zig").String16;
-        String16.write(self, value, endian);
+        try String16.write(self, value, endian);
     }
 
-    pub fn writeString32(self: *BinaryStream, value: []const u8, endian: Endianess) void {
+    pub fn writeString32(self: *BinaryStream, value: []const u8, endian: Endianess) !void {
         const String32 = @import("../types/string/String32.zig").String32;
-        String32.write(self, value, endian);
+        try String32.write(self, value, endian);
     }
 
-    pub fn writeVarString(self: *BinaryStream, value: []const u8) void {
+    pub fn writeVarString(self: *BinaryStream, value: []const u8) !void {
         const VarString = @import("../types/string/VarString.zig").VarString;
-        VarString.write(self, value);
+        try VarString.write(self, value);
     }
 
     pub fn writeUuid(self: *BinaryStream, value: []const u8) !void {
@@ -234,148 +227,148 @@ pub const BinaryStream = struct {
     }
 
     // Float write methods
-    pub fn writeFloat32(self: *BinaryStream, value: f32, endian: Endianess) void {
+    pub fn writeFloat32(self: *BinaryStream, value: f32, endian: Endianess) !void {
         const Float32 = @import("../types/float/Float32.zig").Float32;
-        Float32.write(self, value, endian);
+        try Float32.write(self, value, endian);
     }
 
-    pub fn writeFloat64(self: *BinaryStream, value: f64, endian: Endianess) void {
+    pub fn writeFloat64(self: *BinaryStream, value: f64, endian: Endianess) !void {
         const Float64 = @import("../types/float/Float64.zig").Float64;
-        Float64.write(self, value, endian);
+        try Float64.write(self, value, endian);
     }
 
     // Unsigned integer read methods
-    pub fn readUint8(self: *BinaryStream) u8 {
+    pub fn readUint8(self: *BinaryStream) !u8 {
         const Uint8 = @import("../types/unsigned/UInt8.zig").Uint8;
-        return Uint8.read(self);
+        return try Uint8.read(self);
     }
 
-    pub fn readUint16(self: *BinaryStream, endian: Endianess) u16 {
+    pub fn readUint16(self: *BinaryStream, endian: Endianess) !u16 {
         const Uint16 = @import("../types/unsigned/UInt16.zig").Uint16;
-        return Uint16.read(self, endian);
+        return try Uint16.read(self, endian);
     }
 
-    pub fn readUint24(self: *BinaryStream, endian: Endianess) u24 {
+    pub fn readUint24(self: *BinaryStream, endian: Endianess) !u24 {
         const Uint24 = @import("../types/unsigned/UInt24.zig").Uint24;
-        return Uint24.read(self, endian);
+        return try Uint24.read(self, endian);
     }
 
-    pub fn readUint32(self: *BinaryStream, endian: Endianess) u32 {
+    pub fn readUint32(self: *BinaryStream, endian: Endianess) !u32 {
         const Uint32 = @import("../types/unsigned/UInt32.zig").Uint32;
-        return Uint32.read(self, endian);
+        return try Uint32.read(self, endian);
     }
 
-    pub fn readUint64(self: *BinaryStream, endian: Endianess) u64 {
+    pub fn readUint64(self: *BinaryStream, endian: Endianess) !u64 {
         const Uint64 = @import("../types/unsigned/UInt64.zig").Uint64;
-        return Uint64.read(self, endian);
+        return try Uint64.read(self, endian);
     }
 
-    pub fn readULong(self: *BinaryStream, endian: Endianess) u64 {
+    pub fn readULong(self: *BinaryStream, endian: Endianess) !u64 {
         const ULong = @import("../types/unsigned/ULong.zig").ULong;
-        return ULong.read(self, endian);
+        return try ULong.read(self, endian);
     }
 
-    pub fn readUShort(self: *BinaryStream, endian: Endianess) u16 {
+    pub fn readUShort(self: *BinaryStream, endian: Endianess) !u16 {
         const UShort = @import("../types/unsigned/UShort.zig").UShort;
-        return UShort.read(self, endian);
+        return try UShort.read(self, endian);
     }
 
-    pub fn readBool(self: *BinaryStream) bool {
+    pub fn readBool(self: *BinaryStream) !bool {
         const Bool = @import("../types/unsigned/Bool.zig").Bool;
-        return Bool.read(self);
+        return try Bool.read(self);
     }
 
     // Signed integer read methods
-    pub fn readByte(self: *BinaryStream) i8 {
+    pub fn readByte(self: *BinaryStream) !i8 {
         const Byte = @import("../types/signed/Byte.zig").Byte;
-        return Byte.read(self);
+        return try Byte.read(self);
     }
 
-    pub fn readInt8(self: *BinaryStream) i8 {
+    pub fn readInt8(self: *BinaryStream) !i8 {
         const Int8 = @import("../types/signed/Int8.zig").Int8;
-        return Int8.read(self);
+        return try Int8.read(self);
     }
 
-    pub fn readInt16(self: *BinaryStream, endian: Endianess) i16 {
+    pub fn readInt16(self: *BinaryStream, endian: Endianess) !i16 {
         const Int16 = @import("../types/signed/Int16.zig").Int16;
-        return Int16.read(self, endian);
+        return try Int16.read(self, endian);
     }
 
-    pub fn readInt24(self: *BinaryStream, endian: Endianess) i32 {
+    pub fn readInt24(self: *BinaryStream, endian: Endianess) !i32 {
         const Int24 = @import("../types/signed/Int24.zig").Int24;
-        return Int24.read(self, endian);
+        return try Int24.read(self, endian);
     }
 
-    pub fn readInt32(self: *BinaryStream, endian: Endianess) i32 {
+    pub fn readInt32(self: *BinaryStream, endian: Endianess) !i32 {
         const Int32 = @import("../types/signed/Int32.zig").Int32;
-        return Int32.read(self, endian);
+        return try Int32.read(self, endian);
     }
 
-    pub fn readInt64(self: *BinaryStream, endian: Endianess) i64 {
+    pub fn readInt64(self: *BinaryStream, endian: Endianess) !i64 {
         const Int64 = @import("../types/signed/Int64.zig").Int64;
-        return Int64.read(self, endian);
+        return try Int64.read(self, endian);
     }
 
-    pub fn readLong(self: *BinaryStream, endian: Endianess) i64 {
+    pub fn readLong(self: *BinaryStream, endian: Endianess) !i64 {
         const Long = @import("../types/signed/Long.zig").Long;
-        return Long.read(self, endian);
+        return try Long.read(self, endian);
     }
 
-    pub fn readShort(self: *BinaryStream, endian: Endianess) i16 {
+    pub fn readShort(self: *BinaryStream, endian: Endianess) !i16 {
         const Short = @import("../types/signed/Short.zig").Short;
-        return Short.read(self, endian);
+        return try Short.read(self, endian);
     }
 
     // Variable-length integer read methods
-    pub fn readVarInt(self: *BinaryStream) u32 {
+    pub fn readVarInt(self: *BinaryStream) !u32 {
         const VarInt = @import("../types/varint/VarInt.zig").VarInt;
-        return VarInt.read(self);
+        return try VarInt.read(self);
     }
 
-    pub fn readVarLong(self: *BinaryStream) u64 {
+    pub fn readVarLong(self: *BinaryStream) !u64 {
         const VarLong = @import("../types/varint/VarLong.zig").VarLong;
-        return VarLong.read(self);
+        return try VarLong.read(self);
     }
 
-    pub fn readZigZag(self: *BinaryStream) i32 {
+    pub fn readZigZag(self: *BinaryStream) !i32 {
         const ZigZag = @import("../types/varint/ZigZag.zig").ZigZag;
-        return ZigZag.read(self);
+        return try ZigZag.read(self);
     }
 
-    pub fn readZigZong(self: *BinaryStream) i64 {
+    pub fn readZigZong(self: *BinaryStream) !i64 {
         const ZigZong = @import("../types/varint/ZigZong.zig").ZigZong;
-        return ZigZong.read(self);
+        return try ZigZong.read(self);
     }
 
     // String read methods
-    pub fn readString16(self: *BinaryStream, endian: Endianess) []const u8 {
+    pub fn readString16(self: *BinaryStream, endian: Endianess) ![]const u8 {
         const String16 = @import("../types/string/String16.zig").String16;
-        return String16.read(self, endian);
+        return try String16.read(self, endian);
     }
 
-    pub fn readString32(self: *BinaryStream, endian: Endianess) []const u8 {
+    pub fn readString32(self: *BinaryStream, endian: Endianess) ![]const u8 {
         const String32 = @import("../types/string/String32.zig").String32;
-        return String32.read(self, endian);
+        return try String32.read(self, endian);
     }
 
-    pub fn readVarString(self: *BinaryStream) []const u8 {
+    pub fn readVarString(self: *BinaryStream) ![]const u8 {
         const VarString = @import("../types/string/VarString.zig").VarString;
-        return VarString.read(self);
+        return try VarString.read(self);
     }
 
-    pub fn readUuid(self: *BinaryStream) []const u8 {
+    pub fn readUuid(self: *BinaryStream) ![]const u8 {
         const Uuid = @import("../types/string/Uuid.zig").Uuid;
-        return Uuid.read(self);
+        return try Uuid.read(self);
     }
 
     // Float read methods
-    pub fn readFloat32(self: *BinaryStream, endian: Endianess) f32 {
+    pub fn readFloat32(self: *BinaryStream, endian: Endianess) !f32 {
         const Float32 = @import("../types/float/Float32.zig").Float32;
-        return Float32.read(self, endian);
+        return try Float32.read(self, endian);
     }
 
-    pub fn readFloat64(self: *BinaryStream, endian: Endianess) f64 {
+    pub fn readFloat64(self: *BinaryStream, endian: Endianess) !f64 {
         const Float64 = @import("../types/float/Float64.zig").Float64;
-        return Float64.read(self, endian);
+        return try Float64.read(self, endian);
     }
 };
