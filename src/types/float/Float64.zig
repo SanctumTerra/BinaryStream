@@ -9,11 +9,10 @@ const Endianess = @import("../../enums/Endianess.zig").Endianess;
 /// Supports both big-endian and little-endian byte ordering.
 pub const Float64 = struct {
     /// Reads a 64-bit floating-point value from the stream.
-    pub fn read(stream: *BinaryStream, endianess: ?Endianess) !f64 {
+    pub fn read(stream: *BinaryStream, endianess: ?Endianess) error{NotEnoughBytes}!f64 {
         const bytes = stream.read(8);
         if (bytes.len < 8) {
-            std.log.err("Cannot read float64: not enough bytes", .{});
-            return 0;
+            return error.NotEnoughBytes;
         }
 
         var bits: u64 = undefined;
