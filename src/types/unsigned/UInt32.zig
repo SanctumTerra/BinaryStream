@@ -3,7 +3,7 @@ const BinaryStream = @import("../../stream/BinaryStream.zig").BinaryStream;
 const Endianess = @import("../../enums/Endianess.zig").Endianess;
 
 pub const Uint32 = struct {
-    pub fn write(stream: *BinaryStream, value: u32, endianess: ?Endianess) void {
+    pub fn write(stream: *BinaryStream, value: u32, endianess: ?Endianess) !void {
         var bytes: [4]u8 = undefined;
         switch (endianess orelse .Big) {
             .Little => {
@@ -19,10 +19,10 @@ pub const Uint32 = struct {
                 bytes[3] = @intCast(value & 0xFF);
             },
         }
-        stream.write(&bytes);
+        try stream.write(&bytes);
     }
 
-    pub fn read(stream: *BinaryStream, endianess: ?Endianess) u32 {
+    pub fn read(stream: *BinaryStream, endianess: ?Endianess) !u32 {
         const bytes = stream.read(4);
         if (bytes.len < 4) {
             std.log.err("Cannot read uint32: not enough bytes", .{});
@@ -43,12 +43,12 @@ test "UInt32 read/write" {
 
     // Test writing a value
     const test_value: u32 = 42;
-    Uint32.write(&stream, test_value, .Big);
+    try Uint32.write(&stream, test_value, .Big);
 
     // Reset offset to read from the beginning
     stream.offset = 0;
 
     // Test reading the value
-    const read_value = Uint32.read(&stream, .Big);
+    const read_value = try Uint32.read(&stream, .Big);
     try std.testing.expectEqual(test_value, read_value);
 }
