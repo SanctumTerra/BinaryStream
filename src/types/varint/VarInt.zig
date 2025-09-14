@@ -12,7 +12,7 @@ pub const VarInt = struct {
     /// Reads a variable-length encoded integer from the stream.
     /// Reads one byte at a time until a byte without the continuation bit is found.
     /// The endianess parameter is ignored for VarInt as it uses a special encoding.
-    pub fn read(self: *BinaryStream) u32 {
+    pub fn read(self: *BinaryStream) !u32 {
         var value: u32 = 0;
         var size: u3 = 0;
 
@@ -53,7 +53,7 @@ pub const VarInt = struct {
     /// Writes a variable-length encoded integer to the stream.
     /// Each byte uses 7 bits of data and 1 bit as a continuation flag.
     /// The endianess parameter is ignored for VarInt as it uses a special encoding.
-    pub fn write(self: *BinaryStream, mut_value: u32) void {
+    pub fn write(self: *BinaryStream, mut_value: u32) !void {
         var value = mut_value;
 
         while (true) {
@@ -64,7 +64,7 @@ pub const VarInt = struct {
                 byte |= 0x80;
             }
 
-            self.write(&[_]u8{byte});
+            try self.write(&[_]u8{byte});
 
             if (value == 0) {
                 break;
@@ -81,12 +81,12 @@ test "VarInt read/write" {
 
     // Test writing a value
     const test_value: u32 = 51727646;
-    VarInt.write(&stream, test_value);
+    try VarInt.write(&stream, test_value);
 
     // Reset offset to read from the beginning
     stream.offset = 0;
 
     // Test reading the value
-    const read_value = VarInt.read(&stream);
+    const read_value = try VarInt.read(&stream);
     try std.testing.expectEqual(test_value, read_value);
 }
