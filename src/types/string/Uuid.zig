@@ -11,38 +11,29 @@ pub const Uuid = struct {
     /// Reads a 128-bit (16 bytes) UUID from the stream and returns it as a formatted string.
     /// Caller is responsible for freeing the returned string using the stream's allocator.
     /// If there's an error reading the UUID, returns a default all-zero UUID and logs the error.
-    pub fn read(stream: *BinaryStream) ![]const u8 {
+    pub fn read(stream: *BinaryStream) error{ NotEnoughBytesFirstPart, NotEnoughBytesSecondPart, OutOfMemory, NoSpaceLeft }![]const u8 {
         // Read the first 8 bytes
         const bytes_m = stream.read(8);
         if (bytes_m.len < 8) {
-            std.log.err("Cannot read UUID: not enough bytes for first half", .{});
-            return "00000000-0000-0000-0000-000000000000";
+            return error.NotEnoughBytesFirstPart;
         }
 
         // Read the second 8 bytes
         const bytes_l = stream.read(8);
         if (bytes_l.len < 8) {
-            std.log.err("Cannot read UUID: not enough bytes for second half", .{});
-            return "00000000-0000-0000-0000-000000000000";
+            return error.NotEnoughBytesSecondPart;
         }
 
         // Allocate a buffer for the UUID string (36 characters: 32 hex digits + 4 hyphens)
-        const uuid_str = stream.allocator.alloc(u8, 36) catch |err| {
-            std.log.err("Failed to allocate memory for UUID: {any}", .{err});
-            return "00000000-0000-0000-0000-000000000000";
-        };
+        const uuid_str = try stream.allocator.alloc(u8, 36);
 
         // Format the UUID string from the two 8-byte chunks
-        _ = std.fmt.bufPrint(uuid_str, "{x:0>2}{x:0>2}{x:0>2}{x:0>2}-{x:0>2}{x:0>2}-{x:0>2}{x:0>2}-{x:0>2}{x:0>2}-{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}", .{
+        _ = try std.fmt.bufPrint(uuid_str, "{x:0>2}{x:0>2}{x:0>2}{x:0>2}-{x:0>2}{x:0>2}-{x:0>2}{x:0>2}-{x:0>2}{x:0>2}-{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}", .{
             bytes_m[0], bytes_m[1], bytes_m[2], bytes_m[3],
             bytes_m[4], bytes_m[5], bytes_m[6], bytes_m[7],
             bytes_l[0], bytes_l[1], bytes_l[2], bytes_l[3],
             bytes_l[4], bytes_l[5], bytes_l[6], bytes_l[7],
-        }) catch |err| {
-            stream.allocator.free(uuid_str);
-            std.log.err("Failed to format UUID: {any}", .{err});
-            return "00000000-0000-0000-0000-000000000000";
-        };
+        });
 
         return uuid_str;
     }
@@ -50,10 +41,9 @@ pub const Uuid = struct {
     /// Writes a 128-bit (16 bytes) UUID to the stream from a formatted string.
     /// The UUID string should be in the standard format: 8-4-4-4-12 hexadecimal digits
     /// with hyphens, e.g. "550e8400-e29b-41d4-a716-446655440000"
-    pub fn write(stream: *BinaryStream, value: []const u8) !void {
+    pub fn write(stream: *BinaryStream, value: []const u8) error{ IncorrectLength, InvalidUuidFormat, OutOfMemory }!void {
         if (value.len != 36) {
-            std.log.err("Invalid UUID format: incorrect length", .{});
-            return error.InvalidUuidFormat;
+            return error.IncorrectLength;
         }
 
         var bytes_m: [8]u8 = undefined;
