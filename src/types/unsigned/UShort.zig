@@ -4,12 +4,12 @@ const Endianess = @import("../../enums/Endianess.zig").Endianess;
 const Uint16 = @import("../../types/unsigned/UInt16.zig").Uint16;
 
 pub const UShort = struct {
-    pub fn write(stream: *BinaryStream, value: u16, endianess: ?Endianess) void {
-        Uint16.write(stream, value, endianess);
+    pub fn write(stream: *BinaryStream, value: u16, endianess: ?Endianess) !void {
+        try Uint16.write(stream, value, endianess);
     }
 
-    pub fn read(stream: *BinaryStream, endianess: ?Endianess) u16 {
-        return Uint16.read(stream, endianess);
+    pub fn read(stream: *BinaryStream, endianess: ?Endianess) !u16 {
+        return try Uint16.read(stream, endianess);
     }
 };
 
@@ -21,12 +21,12 @@ test "UShort read/write" {
 
     // Test writing a value
     const test_value: u16 = 42;
-    UShort.write(&stream, test_value, .Big);
+    try UShort.write(&stream, test_value, .Big);
 
     // Reset offset to read from the beginning
     stream.offset = 0;
 
     // Test reading the value
-    const read_value = UShort.read(&stream, .Big);
+    const read_value = try UShort.read(&stream, .Big);
     try std.testing.expectEqual(test_value, read_value);
 }
