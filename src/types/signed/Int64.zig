@@ -36,11 +36,10 @@ pub const Int64 = struct {
         }
     }
 
-    pub fn read(stream: *BinaryStream, endianess: ?Endianess) !i64 {
+    pub fn read(stream: *BinaryStream, endianess: ?Endianess) error{NotEnoughBytes}!i64 {
         const value = stream.read(8);
         if (value.len < 8) {
-            std.log.err("Cannot read int64: not enough bytes", .{});
-            return 0;
+            return error.NotEnoughBytes;
         }
         switch (endianess orelse .Big) {
             .Little => {
