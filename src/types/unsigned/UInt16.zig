@@ -21,8 +21,7 @@ pub const Uint16 = struct {
     pub fn read(stream: *BinaryStream, endianess: ?Endianess) !u16 {
         const bytes = stream.read(2);
         if (bytes.len < 2) {
-            std.log.err("Cannot read uint16: not enough bytes", .{});
-            return 0;
+            return error.NotEnoughBytes;
         }
         return switch (endianess orelse .Big) {
             .Little => @as(u16, @intCast(bytes[0])) | (@as(u16, @intCast(bytes[1])) << 8),
