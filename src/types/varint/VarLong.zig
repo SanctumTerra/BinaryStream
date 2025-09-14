@@ -13,7 +13,7 @@ pub const VarLong = struct {
     /// Reads a variable-length encoded long integer from the stream.
     /// Reads one byte at a time until a byte without the continuation bit is found.
     /// The endianess parameter is ignored for VarLong as it uses a special encoding.
-    pub fn read(self: *BinaryStream) u64 {
+    pub fn read(self: *BinaryStream) !u64 {
         var value: u64 = 0;
         var size: u4 = 0;
 
@@ -59,7 +59,7 @@ pub const VarLong = struct {
     /// Writes a variable-length encoded long integer to the stream.
     /// Each byte uses 7 bits of data and 1 bit as a continuation flag.
     /// The endianess parameter is ignored for VarLong as it uses a special encoding.
-    pub fn write(self: *BinaryStream, mut_value: u64) void {
+    pub fn write(self: *BinaryStream, mut_value: u64) !void {
         var value = mut_value;
 
         while (true) {
@@ -70,7 +70,7 @@ pub const VarLong = struct {
                 byte |= 0x80;
             }
 
-            self.write(&[_]u8{byte});
+            try self.write(&[_]u8{byte});
 
             if (value == 0) {
                 break;
@@ -87,12 +87,12 @@ test "VarLong read/write" {
 
     // Test writing a value
     const test_value: u64 = 12345678901234;
-    VarLong.write(&stream, test_value);
+    try VarLong.write(&stream, test_value);
 
     // Reset offset to read from the beginning
     stream.offset = 0;
 
     // Test reading the value
-    const read_value = VarLong.read(&stream);
+    const read_value = try VarLong.read(&stream);
     try std.testing.expectEqual(test_value, read_value);
 }
