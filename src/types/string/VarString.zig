@@ -13,16 +13,16 @@ const VarInt = @import("../varint/VarInt.zig").VarInt;
 pub const VarString = struct {
     /// Reads a string prefixed with a VarInt length.
     /// First reads the length as a VarInt, then reads that many bytes.
-    pub fn read(stream: *BinaryStream) []const u8 {
-        const length = VarInt.read(stream);
+    pub fn read(stream: *BinaryStream) ![]const u8 {
+        const length = try VarInt.read(stream);
         return stream.read(length);
     }
 
     /// Writes a string prefixed with a VarInt length.
     /// First writes the length as a VarInt, then writes the string data.
-    pub fn write(stream: *BinaryStream, value: []const u8) void {
-        VarInt.write(stream, @intCast(value.len));
-        stream.write(value);
+    pub fn write(stream: *BinaryStream, value: []const u8) !void {
+        try VarInt.write(stream, @intCast(value.len));
+        try stream.write(value);
     }
 };
 
@@ -34,13 +34,13 @@ test "VarString read/write" {
 
     // Test writing a string
     const test_value = "Hello, world! This is a VarString.";
-    VarString.write(&stream, test_value);
+    try VarString.write(&stream, test_value);
 
     // Reset offset to read from the beginning
     stream.offset = 0;
 
     // Test reading the string
-    const read_value = VarString.read(&stream);
+    const read_value = try VarString.read(&stream);
 
     // Compare the strings
     try std.testing.expectEqual(test_value.len, read_value.len);
