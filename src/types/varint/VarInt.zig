@@ -19,8 +19,7 @@ pub const VarInt = struct {
         while (true) {
             const bytes = self.read(1);
             if (bytes.len < 1) {
-                std.log.err("Cannot read VarInt: not enough bytes", .{});
-                return 0;
+                return error.NotEnoughBytes;
             }
 
             const current_byte = bytes[0];
@@ -31,8 +30,7 @@ pub const VarInt = struct {
                 3 => 21,
                 4 => 28,
                 else => {
-                    std.log.err("VarInt is too big", .{});
-                    return 0;
+                    return error.VarIntTooBig;
                 },
             };
 
@@ -40,8 +38,7 @@ pub const VarInt = struct {
             size +%= 1;
 
             if (size > 5) {
-                std.log.err("VarInt is too big", .{});
-                return 0;
+                return error.VarIntTooBig;
             }
 
             if (current_byte & 0x80 != 0x80) break;
