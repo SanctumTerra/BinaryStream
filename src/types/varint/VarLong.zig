@@ -1,78 +1,54 @@
 const std = @import("std");
 const BinaryStream = @import("../../stream/BinaryStream.zig").BinaryStream;
-const Endianess = @import("../../enums/Endianess.zig").Endianess;
 
 /// **VarLong**
 ///
-/// A 64-bit integer encoded in a variable-length format.
-/// Uses 1-10 bytes depending on the value, with smaller values using fewer bytes.
-/// Each byte uses 7 bits for data and 1 bit as continuation flag.
+/// A variable-length encoded 64-bit integer.
+/// Uses 1-10 bytes depending on value magnitude.
 ///
 /// Valid range: 0 to 18,446,744,073,709,551,615 (unsigned)
 pub const VarLong = struct {
     /// Reads a variable-length encoded long integer from the stream.
-    /// Reads one byte at a time until a byte without the continuation bit is found.
-    /// The endianess parameter is ignored for VarLong as it uses a special encoding.
-    pub fn read(self: *BinaryStream) !u64 {
+    pub fn read(stream: *BinaryStream) !u64 {
+        const buffer = stream.payload.items;
+        var offset = stream.offset;
         var value: u64 = 0;
-        var size: u4 = 0;
+        var shift: u6 = 0;
+        var i: u4 = 0;
 
-        while (true) {
-            const bytes = self.read(1);
-            if (bytes.len < 1) {
-                return error.NotEnoughBytes;
+        while (i < 10) : (i += 1) {
+            if (offset >= buffer.len) return error.NotEnoughBytes;
+            const byte = buffer[offset];
+            offset += 1;
+            value |= @as(u64, byte & 0x7F) << shift;
+            if (byte & 0x80 == 0) {
+                stream.offset = offset;
+                return value;
             }
-
-            const current_byte = bytes[0];
-            const shift_amount: u6 = switch (size) {
-                0 => 0,
-                1 => 7,
-                2 => 14,
-                3 => 21,
-                4 => 28,
-                5 => 35,
-                6 => 42,
-                7 => 49,
-                8 => 56,
-                9 => 63,
-                else => {
-                    return error.VarLongTooBig;
-                },
-            };
-
-            value |= @as(u64, current_byte & 0x7F) << shift_amount;
-            size +%= 1;
-
-            if (size > 10) {
-                return error.VarLongTooBig;
-            }
-
-            if (current_byte & 0x80 != 0x80) break;
+            shift +%= 7;
         }
 
-        return value;
+        return error.VarLongTooBig;
     }
 
     /// Writes a variable-length encoded long integer to the stream.
-    /// Each byte uses 7 bits of data and 1 bit as a continuation flag.
-    /// The endianess parameter is ignored for VarLong as it uses a special encoding.
-    pub fn write(self: *BinaryStream, mut_value: u64) !void {
-        var value = mut_value;
+    pub fn write(stream: *BinaryStream, value: u64) !void {
+        var buf: [10]u8 = undefined;
+        var v = value;
+        var len: usize = 0;
 
         while (true) {
-            var byte: u8 = @intCast(value & 0x7F);
-            value >>= 7;
-
-            if (value != 0) {
-                byte |= 0x80;
-            }
-
-            try self.write(&[_]u8{byte});
-
-            if (value == 0) {
+            if ((v & ~@as(u64, 0x7F)) == 0) {
+                buf[len] = @truncate(v);
+                len += 1;
                 break;
             }
+            buf[len] = @as(u8, @truncate(v & 0x7F)) | 0x80;
+            v >>= 7;
+            len += 1;
         }
+
+        try stream.write(buf[0..len]);
     }
 };
 

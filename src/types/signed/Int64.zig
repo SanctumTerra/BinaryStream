@@ -4,51 +4,25 @@ const Endianess = @import("../../enums/Endianess.zig").Endianess;
 
 pub const Int64 = struct {
     pub fn write(stream: *BinaryStream, value: i64, endianess: ?Endianess) !void {
-        switch (endianess orelse .Big) {
-            .Little => {
-                try stream.write(
-                    &[_]u8{
-                        @intCast(value & 0xFF),
-                        @intCast((value >> 8) & 0xFF),
-                        @intCast((value >> 16) & 0xFF),
-                        @intCast((value >> 24) & 0xFF),
-                        @intCast((value >> 32) & 0xFF),
-                        @intCast((value >> 40) & 0xFF),
-                        @intCast((value >> 48) & 0xFF),
-                        @intCast((value >> 56) & 0xFF),
-                    },
-                );
-            },
-            .Big => {
-                try stream.write(
-                    &[_]u8{
-                        @intCast((value >> 56) & 0xFF),
-                        @intCast((value >> 48) & 0xFF),
-                        @intCast((value >> 40) & 0xFF),
-                        @intCast((value >> 32) & 0xFF),
-                        @intCast((value >> 24) & 0xFF),
-                        @intCast((value >> 16) & 0xFF),
-                        @intCast((value >> 8) & 0xFF),
-                        @intCast(value & 0xFF),
-                    },
-                );
-            },
-        }
+        const unsigned: u64 = @bitCast(value);
+        const bytes = switch (endianess orelse .Big) {
+            .Little => std.mem.toBytes(unsigned),
+            .Big => std.mem.toBytes(@byteSwap(unsigned)),
+        };
+        try stream.write(&bytes);
     }
 
     pub fn read(stream: *BinaryStream, endianess: ?Endianess) error{NotEnoughBytes}!i64 {
-        const value = stream.read(8);
-        if (value.len < 8) {
+        const bytes = stream.read(8);
+        if (bytes.len < 8) {
             return error.NotEnoughBytes;
         }
-        switch (endianess orelse .Big) {
-            .Little => {
-                return @as(i64, @intCast(value[0])) | (@as(i64, @intCast(value[1])) << 8) | (@as(i64, @intCast(value[2])) << 16) | (@as(i64, @intCast(value[3])) << 24) | (@as(i64, @intCast(value[4])) << 32) | (@as(i64, @intCast(value[5])) << 40) | (@as(i64, @intCast(value[6])) << 48) | (@as(i64, @intCast(value[7])) << 56);
-            },
-            .Big => {
-                return (@as(i64, @intCast(value[0])) << 56) | (@as(i64, @intCast(value[1])) << 48) | (@as(i64, @intCast(value[2])) << 40) | (@as(i64, @intCast(value[3])) << 32) | (@as(i64, @intCast(value[4])) << 24) | (@as(i64, @intCast(value[5])) << 16) | (@as(i64, @intCast(value[6])) << 8) | @as(i64, @intCast(value[7]));
-            },
-        }
+        const unsigned = std.mem.bytesToValue(u64, bytes[0..8]);
+        const swapped = switch (endianess orelse .Big) {
+            .Little => unsigned,
+            .Big => @byteSwap(unsigned),
+        };
+        return @bitCast(swapped);
     }
 };
 

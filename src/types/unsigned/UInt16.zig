@@ -4,17 +4,10 @@ const Endianess = @import("../../enums/Endianess.zig").Endianess;
 
 pub const Uint16 = struct {
     pub fn write(stream: *BinaryStream, value: u16, endianess: ?Endianess) !void {
-        var bytes: [2]u8 = undefined;
-        switch (endianess orelse .Big) {
-            .Little => {
-                bytes[0] = @intCast(value & 0xFF);
-                bytes[1] = @intCast((value >> 8) & 0xFF);
-            },
-            .Big => {
-                bytes[0] = @intCast((value >> 8) & 0xFF);
-                bytes[1] = @intCast(value & 0xFF);
-            },
-        }
+        const bytes = switch (endianess orelse .Big) {
+            .Little => std.mem.toBytes(value),
+            .Big => std.mem.toBytes(@byteSwap(value)),
+        };
         try stream.write(&bytes);
     }
 
@@ -23,9 +16,10 @@ pub const Uint16 = struct {
         if (bytes.len < 2) {
             return error.NotEnoughBytes;
         }
+        const value = std.mem.bytesToValue(u16, bytes[0..2]);
         return switch (endianess orelse .Big) {
-            .Little => @as(u16, @intCast(bytes[0])) | (@as(u16, @intCast(bytes[1])) << 8),
-            .Big => (@as(u16, @intCast(bytes[0])) << 8) | @as(u16, @intCast(bytes[1])),
+            .Little => value,
+            .Big => @byteSwap(value),
         };
     }
 };

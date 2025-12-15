@@ -4,40 +4,25 @@ const Endianess = @import("../../enums/Endianess.zig").Endianess;
 
 pub const Int32 = struct {
     pub fn write(stream: *BinaryStream, value: i32, endianess: ?Endianess) !void {
-        switch (endianess orelse .Big) {
-            .Little => {
-                try stream.write(&[_]u8{
-                    @intCast(value & 0xFF),
-                    @intCast((value >> 8) & 0xFF),
-                    @intCast((value >> 16) & 0xFF),
-                    @intCast((value >> 24) & 0xFF),
-                });
-            },
-            .Big => {
-                try stream.write(&[_]u8{
-                    @intCast((value >> 24) & 0xFF),
-                    @intCast((value >> 16) & 0xFF),
-                    @intCast((value >> 8) & 0xFF),
-                    @intCast(value & 0xFF),
-                });
-            },
-        }
+        const unsigned: u32 = @bitCast(value);
+        const bytes = switch (endianess orelse .Big) {
+            .Little => std.mem.toBytes(unsigned),
+            .Big => std.mem.toBytes(@byteSwap(unsigned)),
+        };
+        try stream.write(&bytes);
     }
 
     pub fn read(stream: *BinaryStream, endianess: ?Endianess) error{NotEnoughBytes}!i32 {
-        const value = stream.read(4);
-        if (value.len < 4) {
+        const bytes = stream.read(4);
+        if (bytes.len < 4) {
             return error.NotEnoughBytes;
         }
-
-        switch (endianess orelse .Big) {
-            .Little => {
-                return @as(i32, @intCast(value[0])) | (@as(i32, @intCast(value[1])) << 8) | (@as(i32, @intCast(value[2])) << 16) | (@as(i32, @intCast(value[3])) << 24);
-            },
-            .Big => {
-                return (@as(i32, @intCast(value[0])) << 24) | (@as(i32, @intCast(value[1])) << 16) | (@as(i32, @intCast(value[2])) << 8) | @as(i32, @intCast(value[3]));
-            },
-        }
+        const unsigned = std.mem.bytesToValue(u32, bytes[0..4]);
+        const swapped = switch (endianess orelse .Big) {
+            .Little => unsigned,
+            .Big => @byteSwap(unsigned),
+        };
+        return @bitCast(swapped);
     }
 };
 

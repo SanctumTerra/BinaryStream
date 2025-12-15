@@ -35,6 +35,20 @@ pub const BinaryStream = struct {
         self.payload.deinit(self.allocator);
     }
 
+    /// Pre-allocates capacity for the stream buffer.
+    /// Use this if you know the approximate size of data you'll write
+    /// to avoid reallocations and enable the fast write path.
+    pub fn ensureCapacity(self: *BinaryStream, capacity: usize) !void {
+        try self.payload.ensureTotalCapacity(self.allocator, capacity);
+    }
+
+    /// Resets the stream for reuse without deallocating memory.
+    /// Keeps the allocated capacity for future writes.
+    pub fn reset(self: *BinaryStream) void {
+        self.payload.items.len = 0;
+        self.offset = 0;
+    }
+
     /// Returns a slice to the current buffer without any allocation
     pub fn getBuffer(self: *const BinaryStream) []const u8 {
         return self.payload.items;
@@ -48,58 +62,57 @@ pub const BinaryStream = struct {
     }
 
     /// Reads a specified number of bytes from the stream.
-    ///
-    /// If there are not enough bytes left, returns as many as possible.
-    pub fn read(self: *BinaryStream, length: usize) []const u8 {
-        if (self.offset + length > self.payload.items.len) {
-            const safe_length = if (self.offset < self.payload.items.len)
-                self.payload.items.len - self.offset
-            else
-                0;
-
-            const value = if (safe_length > 0)
-                self.payload.items[self.offset..][0..safe_length]
-            else
-                &[_]u8{};
-
-            self.offset += safe_length;
-            return value;
+    /// Returns error if not enough bytes available.
+    pub inline fn read(self: *BinaryStream, length: usize) []const u8 {
+        const end = self.offset + length;
+        if (end > self.payload.items.len) {
+            return &[_]u8{};
         }
-
-        const value = self.payload.items[self.offset .. self.offset + length];
-        self.offset += length;
+        const value = self.payload.items[self.offset..end];
+        self.offset = end;
         return value;
     }
 
     /// Writes a byte slice to the stream at the current offset.
-    ///
-    /// If the offset is beyond the current payload size, it will grow the payload.
-    pub fn write(self: *BinaryStream, value: []const u8) !void {
-        // If we're writing past the end of the current buffer, we need to expand
-        if (self.offset > self.payload.items.len) {
-            // Add padding zeros to reach the offset
-            const padding_needed = self.offset - self.payload.items.len;
-            try self.payload.appendNTimes(self.allocator, 0, padding_needed);
-        }
+    /// Optimized for the common case of sequential appending.
+    pub inline fn write(self: *BinaryStream, value: []const u8) !void {
+        const end_pos = self.offset + value.len;
 
+        // Fast path: appending at end with enough capacity
         if (self.offset == self.payload.items.len) {
-            // Appending at the end
-            try self.payload.appendSlice(self.allocator, value);
-            self.offset += value.len;
-        } else {
-            // Writing within the existing buffer
-            const end_pos = self.offset + value.len;
-
-            if (end_pos > self.payload.items.len) {
-                // Need to grow the buffer to fit the entire value
-                const additional_bytes = end_pos - self.payload.items.len;
-                try self.payload.appendNTimes(self.allocator, 0, additional_bytes);
+            if (self.payload.capacity >= end_pos) {
+                // Direct memory copy - no bounds checking needed
+                const dest = self.payload.allocatedSlice()[self.offset..end_pos];
+                @memcpy(dest, value);
+                self.payload.items.len = end_pos;
+                self.offset = end_pos;
+                return;
             }
-
-            // Copy the value into the buffer
-            @memcpy(self.payload.items[self.offset..end_pos], value);
+            // Need to grow - use appendSlice
+            try self.payload.appendSlice(self.allocator, value);
             self.offset = end_pos;
+            return;
         }
+        // Slow path: handle overwrite/insert cases
+        try self.writeSlowPath(value);
+    }
+
+    fn writeSlowPath(self: *BinaryStream, value: []const u8) !void {
+        const end_pos = self.offset + value.len;
+
+        // Ensure we have enough space
+        if (end_pos > self.payload.items.len) {
+            // If offset is past current length, we need padding
+            if (self.offset > self.payload.items.len) {
+                const padding_needed = self.offset - self.payload.items.len;
+                try self.payload.appendNTimes(self.allocator, 0, padding_needed);
+            }
+            const additional = end_pos - self.payload.items.len;
+            try self.payload.appendNTimes(self.allocator, 0, additional);
+        }
+
+        @memcpy(self.payload.items[self.offset..end_pos], value);
+        self.offset = end_pos;
     }
 
     // Unsigned integer write methods

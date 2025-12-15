@@ -4,29 +4,10 @@ const Endianess = @import("../../enums/Endianess.zig").Endianess;
 
 pub const Uint64 = struct {
     pub fn write(stream: *BinaryStream, value: u64, endianess: ?Endianess) !void {
-        var bytes: [8]u8 = undefined;
-        switch (endianess orelse .Big) {
-            .Little => {
-                bytes[0] = @intCast(value & 0xFF);
-                bytes[1] = @intCast((value >> 8) & 0xFF);
-                bytes[2] = @intCast((value >> 16) & 0xFF);
-                bytes[3] = @intCast((value >> 24) & 0xFF);
-                bytes[4] = @intCast((value >> 32) & 0xFF);
-                bytes[5] = @intCast((value >> 40) & 0xFF);
-                bytes[6] = @intCast((value >> 48) & 0xFF);
-                bytes[7] = @intCast((value >> 56) & 0xFF);
-            },
-            .Big => {
-                bytes[0] = @intCast((value >> 56) & 0xFF);
-                bytes[1] = @intCast((value >> 48) & 0xFF);
-                bytes[2] = @intCast((value >> 40) & 0xFF);
-                bytes[3] = @intCast((value >> 32) & 0xFF);
-                bytes[4] = @intCast((value >> 24) & 0xFF);
-                bytes[5] = @intCast((value >> 16) & 0xFF);
-                bytes[6] = @intCast((value >> 8) & 0xFF);
-                bytes[7] = @intCast(value & 0xFF);
-            },
-        }
+        const bytes = switch (endianess orelse .Big) {
+            .Little => std.mem.toBytes(value),
+            .Big => std.mem.toBytes(@byteSwap(value)),
+        };
         try stream.write(&bytes);
     }
 
@@ -35,9 +16,10 @@ pub const Uint64 = struct {
         if (bytes.len < 8) {
             return error.NotEnoughBytes;
         }
+        const value = std.mem.bytesToValue(u64, bytes[0..8]);
         return switch (endianess orelse .Big) {
-            .Little => @as(u64, @intCast(bytes[0])) | (@as(u64, @intCast(bytes[1])) << 8) | (@as(u64, @intCast(bytes[2])) << 16) | (@as(u64, @intCast(bytes[3])) << 24) | (@as(u64, @intCast(bytes[4])) << 32) | (@as(u64, @intCast(bytes[5])) << 40) | (@as(u64, @intCast(bytes[6])) << 48) | (@as(u64, @intCast(bytes[7])) << 56),
-            .Big => (@as(u64, @intCast(bytes[0])) << 56) | (@as(u64, @intCast(bytes[1])) << 48) | (@as(u64, @intCast(bytes[2])) << 40) | (@as(u64, @intCast(bytes[3])) << 32) | (@as(u64, @intCast(bytes[4])) << 24) | (@as(u64, @intCast(bytes[5])) << 16) | (@as(u64, @intCast(bytes[6])) << 8) | @as(u64, @intCast(bytes[7])),
+            .Little => value,
+            .Big => @byteSwap(value),
         };
     }
 };

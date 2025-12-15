@@ -1,72 +1,53 @@
 const std = @import("std");
 const BinaryStream = @import("../../stream/BinaryStream.zig").BinaryStream;
-const Endianess = @import("../../enums/Endianess.zig").Endianess;
 
 /// **VarInt**
 ///
-/// A 32-bit integer encoded in little-endian byte order.
-/// Takes 4 bytes regardless of value.
+/// A variable-length encoded 32-bit integer.
+/// Uses 1-5 bytes depending on value magnitude.
 ///
 /// Valid range: 0 to 4,294,967,295 (unsigned)
 pub const VarInt = struct {
     /// Reads a variable-length encoded integer from the stream.
-    /// Reads one byte at a time until a byte without the continuation bit is found.
-    /// The endianess parameter is ignored for VarInt as it uses a special encoding.
-    pub fn read(self: *BinaryStream) !u32 {
+    pub fn read(stream: *BinaryStream) !u32 {
+        const buffer = stream.payload.items;
+        var offset = stream.offset;
         var value: u32 = 0;
-        var size: u3 = 0;
+        var shift: u5 = 0;
 
-        while (true) {
-            const bytes = self.read(1);
-            if (bytes.len < 1) {
-                return error.NotEnoughBytes;
+        while (shift < 35) {
+            if (offset >= buffer.len) return error.NotEnoughBytes;
+            const byte = buffer[offset];
+            offset += 1;
+            value |= @as(u32, byte & 0x7F) << shift;
+            if (byte & 0x80 == 0) {
+                stream.offset = offset;
+                return value;
             }
-
-            const current_byte = bytes[0];
-            const shift_amount: u5 = switch (size) {
-                0 => 0,
-                1 => 7,
-                2 => 14,
-                3 => 21,
-                4 => 28,
-                else => {
-                    return error.VarIntTooBig;
-                },
-            };
-
-            value |= @as(u32, current_byte & 0x7F) << shift_amount;
-            size +%= 1;
-
-            if (size > 5) {
-                return error.VarIntTooBig;
-            }
-
-            if (current_byte & 0x80 != 0x80) break;
+            shift += 7;
         }
 
-        return value;
+        return error.VarIntTooBig;
     }
 
     /// Writes a variable-length encoded integer to the stream.
-    /// Each byte uses 7 bits of data and 1 bit as a continuation flag.
-    /// The endianess parameter is ignored for VarInt as it uses a special encoding.
-    pub fn write(self: *BinaryStream, mut_value: u32) !void {
-        var value = mut_value;
+    pub fn write(stream: *BinaryStream, value: u32) !void {
+        var buf: [5]u8 = undefined;
+        var v = value;
+        var len: usize = 0;
 
         while (true) {
-            var byte: u8 = @intCast(value & 0x7F);
-            value >>= 7;
-
-            if (value != 0) {
-                byte |= 0x80;
-            }
-
-            try self.write(&[_]u8{byte});
-
-            if (value == 0) {
+            if ((v & ~@as(u32, 0x7F)) == 0) {
+                buf[len] = @truncate(v);
+                len += 1;
                 break;
             }
+            buf[len] = @as(u8, @truncate(v & 0x7F)) | 0x80;
+            v >>= 7;
+            len += 1;
         }
+
+        try stream.write(buf[0..len]);
     }
 };
 

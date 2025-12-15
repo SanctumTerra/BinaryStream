@@ -4,31 +4,26 @@ const Endianess = @import("../../enums/Endianess.zig").Endianess;
 
 pub const Int16 = struct {
     pub fn write(stream: *BinaryStream, value: i16, endianess: ?Endianess) !void {
-        switch (endianess orelse .Big) {
-            .Little => {
-                try stream.write(&[_]u8{ @intCast(value & 0xFF), @intCast((value >> 8) & 0xFF) });
-            },
-            .Big => {
-                try stream.write(&[_]u8{ @intCast((value >> 8) & 0xFF), @intCast(value & 0xFF) });
-            },
-        }
+        const unsigned: u16 = @bitCast(value);
+        const bytes = switch (endianess orelse .Big) {
+            .Little => std.mem.toBytes(unsigned),
+            .Big => std.mem.toBytes(@byteSwap(unsigned)),
+        };
+        try stream.write(&bytes);
     }
 
     pub fn read(stream: *BinaryStream, endianess: ?Endianess) !i16 {
-        const value = stream.read(2);
-        if (value.len < 2) {
+        const bytes = stream.read(2);
+        if (bytes.len < 2) {
             std.log.err("Cannot read int16: not enough bytes", .{});
             return 0;
         }
-
-        switch (endianess orelse .Big) {
-            .Little => {
-                return @as(i16, @intCast(value[0])) | (@as(i16, @intCast(value[1])) << 8);
-            },
-            .Big => {
-                return (@as(i16, @intCast(value[0])) << 8) | @as(i16, @intCast(value[1]));
-            },
-        }
+        const unsigned = std.mem.bytesToValue(u16, bytes[0..2]);
+        const swapped = switch (endianess orelse .Big) {
+            .Little => unsigned,
+            .Big => @byteSwap(unsigned),
+        };
+        return @bitCast(swapped);
     }
 };
 

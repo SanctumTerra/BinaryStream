@@ -14,46 +14,21 @@ pub const Float32 = struct {
         if (bytes.len < 4) {
             return error.NotEnoughBytes;
         }
-
-        var bits: u32 = undefined;
-        switch (endianess orelse .Big) {
-            .Little => {
-                bits = @as(u32, @intCast(bytes[0])) |
-                    (@as(u32, @intCast(bytes[1])) << 8) |
-                    (@as(u32, @intCast(bytes[2])) << 16) |
-                    (@as(u32, @intCast(bytes[3])) << 24);
-            },
-            .Big => {
-                bits = (@as(u32, @intCast(bytes[0])) << 24) |
-                    (@as(u32, @intCast(bytes[1])) << 16) |
-                    (@as(u32, @intCast(bytes[2])) << 8) |
-                    @as(u32, @intCast(bytes[3]));
-            },
-        }
-
-        return @bitCast(bits);
+        const bits = std.mem.bytesToValue(u32, bytes[0..4]);
+        const swapped = switch (endianess orelse .Big) {
+            .Little => bits,
+            .Big => @byteSwap(bits),
+        };
+        return @bitCast(swapped);
     }
 
     /// Writes a 32-bit floating-point value to the stream.
     pub fn write(stream: *BinaryStream, value: f32, endianess: ?Endianess) !void {
         const bits: u32 = @bitCast(value);
-        var bytes: [4]u8 = undefined;
-
-        switch (endianess orelse .Big) {
-            .Little => {
-                bytes[0] = @intCast(bits & 0xFF);
-                bytes[1] = @intCast((bits >> 8) & 0xFF);
-                bytes[2] = @intCast((bits >> 16) & 0xFF);
-                bytes[3] = @intCast((bits >> 24) & 0xFF);
-            },
-            .Big => {
-                bytes[0] = @intCast((bits >> 24) & 0xFF);
-                bytes[1] = @intCast((bits >> 16) & 0xFF);
-                bytes[2] = @intCast((bits >> 8) & 0xFF);
-                bytes[3] = @intCast(bits & 0xFF);
-            },
-        }
-
+        const bytes = switch (endianess orelse .Big) {
+            .Little => std.mem.toBytes(bits),
+            .Big => std.mem.toBytes(@byteSwap(bits)),
+        };
         try stream.write(&bytes);
     }
 };
