@@ -4,13 +4,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const lib_mod = b.createModule(.{
-        .root_source_file = b.path("src/root.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    _ = b.addModule("BinaryStream", .{
+    const lib_mod = b.addModule("BinaryStream", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
@@ -21,6 +15,7 @@ pub fn build(b: *std.Build) void {
         .name = "BinaryStream",
         .root_module = lib_mod,
     });
+
     b.installArtifact(lib);
 
     const lib_unit_tests = b.addTest(.{
@@ -43,6 +38,7 @@ pub fn build(b: *std.Build) void {
         .name = "benchmark",
         .root_module = bench_mod,
     });
+
     b.installArtifact(bench_exe);
 
     const run_bench = b.addRunArtifact(bench_exe);

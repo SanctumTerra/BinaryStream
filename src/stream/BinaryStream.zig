@@ -1,118 +1,136 @@
 const std = @import("std");
 const Endianess = @import("../enums/Endianess.zig").Endianess;
 
+/// Default buffer size for write streams (1MB)
+pub const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024;
+
 pub const BinaryStream = struct {
-    payload: std.ArrayList(u8),
+    /// The underlying payload buffer (fixed size, pre-allocated for writing, or provided for reading)
+    payload: []u8,
+    /// Number of bytes actually written/available in the payload
+    written: usize,
+    /// Current read/write offset
     offset: usize,
+    /// Allocator used for the payload
     allocator: std.mem.Allocator,
+    /// Whether we own the payload and should free it on deinit
+    owns_buffer: bool,
 
+    /// Initialize a BinaryStream.
+    /// - If payload is null: allocates a 1MB buffer for writing, `written` starts at 0
+    /// - If payload is provided: uses that buffer for reading, `written` = payload.len
     pub fn init(allocator: std.mem.Allocator, payload: ?[]const u8, offset: ?usize) BinaryStream {
-        const buffer: []u8 = &[_]u8{};
-
-        var array_list = std.ArrayList(u8).initBuffer(buffer);
-
-        // If payload is provided, append it to the ArrayList
         if (payload) |data| {
-            array_list.appendSlice(allocator, data) catch |err| {
-                std.debug.print("Failed to initialize binary stream: {}\n", .{err});
+            // Reading mode - use the provided buffer directly
+            return BinaryStream{
+                .payload = @constCast(data),
+                .written = data.len,
+                .offset = offset orelse 0,
+                .allocator = allocator,
+                .owns_buffer = false,
+            };
+        } else {
+            // Writing mode - allocate fixed buffer upfront
+            const buf = allocator.alloc(u8, DEFAULT_BUFFER_SIZE) catch {
+                // Fallback to empty stream on allocation failure
                 return BinaryStream{
-                    .allocator = allocator,
-                    .payload = std.ArrayList(u8).initBuffer(buffer),
+                    .payload = &[_]u8{},
+                    .written = 0,
                     .offset = offset orelse 0,
+                    .allocator = allocator,
+                    .owns_buffer = false,
                 };
             };
+            return BinaryStream{
+                .payload = buf,
+                .written = 0,
+                .offset = offset orelse 0,
+                .allocator = allocator,
+                .owns_buffer = true,
+            };
         }
-
-        return BinaryStream{
-            .allocator = allocator,
-            .payload = array_list,
-            .offset = offset orelse 0,
-        };
     }
 
-    /// Frees all memory allocated by this BinaryStream
+    /// Frees the payload if we own it
     pub fn deinit(self: *BinaryStream) void {
-        self.payload.deinit(self.allocator);
-    }
-
-    /// Pre-allocates capacity for the stream buffer.
-    /// Use this if you know the approximate size of data you'll write
-    /// to avoid reallocations and enable the fast write path.
-    pub fn ensureCapacity(self: *BinaryStream, capacity: usize) !void {
-        try self.payload.ensureTotalCapacity(self.allocator, capacity);
-    }
-
-    /// Resets the stream for reuse without deallocating memory.
-    /// Keeps the allocated capacity for future writes.
-    pub fn reset(self: *BinaryStream) void {
-        self.payload.items.len = 0;
+        if (self.owns_buffer and self.payload.len > 0) {
+            self.allocator.free(self.payload);
+        }
+        self.payload = &[_]u8{};
+        self.written = 0;
         self.offset = 0;
     }
 
-    /// Returns a slice to the current buffer without any allocation
-    pub fn getBuffer(self: *const BinaryStream) []const u8 {
-        return self.payload.items;
+    /// Returns the current capacity of the payload
+    pub fn capacity(self: *const BinaryStream) usize {
+        return self.payload.len;
     }
 
-    /// Returns an owned copy of the buffer
-    ///
+    /// Resets the stream for reuse without deallocating memory.
+    /// Keeps the allocated payload for future writes.
+    pub fn reset(self: *BinaryStream) void {
+        self.written = 0;
+        self.offset = 0;
+    }
+
+    /// Returns a slice to the written portion of the payload (zero-copy)
+    pub fn getBuffer(self: *const BinaryStream) []const u8 {
+        return self.payload[0..self.written];
+    }
+
+    /// Returns an owned copy of the written payload
     /// Caller must free the returned slice
     pub fn getBufferOwned(self: *const BinaryStream, allocator: std.mem.Allocator) ![]u8 {
-        return try allocator.dupe(u8, self.payload.items);
+        return try allocator.dupe(u8, self.payload[0..self.written]);
     }
 
     /// Reads a specified number of bytes from the stream.
-    /// Returns error if not enough bytes available.
+    /// Returns empty slice if not enough bytes available.
     pub inline fn read(self: *BinaryStream, length: usize) []const u8 {
         const end = self.offset + length;
-        if (end > self.payload.items.len) {
+        if (end > self.written) {
             return &[_]u8{};
         }
-        const value = self.payload.items[self.offset..end];
+        const value = self.payload[self.offset..end];
         self.offset = end;
         return value;
     }
 
     /// Writes a byte slice to the stream at the current offset.
-    /// Optimized for the common case of sequential appending.
+    /// Returns error.OutOfMemory if payload is full.
     pub inline fn write(self: *BinaryStream, value: []const u8) !void {
         const end_pos = self.offset + value.len;
 
-        // Fast path: appending at end with enough capacity
-        if (self.offset == self.payload.items.len) {
-            if (self.payload.capacity >= end_pos) {
-                // Direct memory copy - no bounds checking needed
-                const dest = self.payload.allocatedSlice()[self.offset..end_pos];
-                @memcpy(dest, value);
-                self.payload.items.len = end_pos;
-                self.offset = end_pos;
-                return;
-            }
-            // Need to grow - use appendSlice
-            try self.payload.appendSlice(self.allocator, value);
-            self.offset = end_pos;
-            return;
+        // Check if we have enough space
+        if (end_pos > self.payload.len) {
+            return error.OutOfMemory;
         }
-        // Slow path: handle overwrite/insert cases
-        try self.writeSlowPath(value);
+
+        // Direct memory copy
+        @memcpy(self.payload[self.offset..end_pos], value);
+        self.offset = end_pos;
+
+        // Update written marker if we extended past it
+        if (end_pos > self.written) {
+            self.written = end_pos;
+        }
     }
 
-    fn writeSlowPath(self: *BinaryStream, value: []const u8) !void {
-        const end_pos = self.offset + value.len;
+    /// Returns how many bytes are left to read
+    pub fn remainingBytes(self: *const BinaryStream) usize {
+        if (self.offset >= self.written) return 0;
+        return self.written - self.offset;
+    }
 
-        // Ensure we have enough space
-        if (end_pos > self.payload.items.len) {
-            // If offset is past current length, we need padding
-            if (self.offset > self.payload.items.len) {
-                const padding_needed = self.offset - self.payload.items.len;
-                try self.payload.appendNTimes(self.allocator, 0, padding_needed);
-            }
-            const additional = end_pos - self.payload.items.len;
-            try self.payload.appendNTimes(self.allocator, 0, additional);
-        }
+    /// Returns how many bytes can still be written
+    pub fn remainingCapacity(self: *const BinaryStream) usize {
+        if (self.offset >= self.payload.len) return 0;
+        return self.payload.len - self.offset;
+    }
 
-        @memcpy(self.payload.items[self.offset..end_pos], value);
-        self.offset = end_pos;
+    /// Check if the stream has reached the end of written data
+    pub fn isEof(self: *const BinaryStream) bool {
+        return self.offset >= self.written;
     }
 
     // Unsigned integer write methods

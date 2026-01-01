@@ -10,14 +10,15 @@ const BinaryStream = @import("../../stream/BinaryStream.zig").BinaryStream;
 pub const VarInt = struct {
     /// Reads a variable-length encoded integer from the stream.
     pub fn read(stream: *BinaryStream) !u32 {
-        const buffer = stream.payload.items;
+        const payload = stream.payload;
+        const written = stream.written;
         var offset = stream.offset;
         var value: u32 = 0;
         var shift: u5 = 0;
 
         while (shift < 35) {
-            if (offset >= buffer.len) return error.NotEnoughBytes;
-            const byte = buffer[offset];
+            if (offset >= written) return error.NotEnoughBytes;
+            const byte = payload[offset];
             offset += 1;
             value |= @as(u32, byte & 0x7F) << shift;
             if (byte & 0x80 == 0) {

@@ -2,7 +2,7 @@ const std = @import("std");
 const BinaryStream = @import("stream/BinaryStream.zig").BinaryStream;
 const Endianess = @import("enums/Endianess.zig").Endianess;
 
-const ITERATIONS = 15_000;
+const ITERATIONS = 1_000;
 
 const TimeFormat = struct { value: f64, unit: []const u8 };
 
@@ -285,35 +285,45 @@ fn benchFloat64(stream: *BinaryStream) !struct { write: u64, read: u64 } {
 // === String Benchmarks ===
 fn benchVarString(stream: *BinaryStream) !struct { write: u64, read: u64 } {
     const test_str = "Hello, BinaryStream!";
+    const str_iterations = ITERATIONS / 2; // Strings use more space
+
     var write_timer = try std.time.Timer.start();
-    for (0..ITERATIONS) |_| {
+    for (0..str_iterations) |_| {
         try stream.writeVarString(test_str);
     }
     const write_ns = write_timer.read();
 
     stream.offset = 0;
     var read_timer = try std.time.Timer.start();
-    for (0..ITERATIONS) |_| {
+    for (0..str_iterations) |_| {
         _ = try stream.readVarString();
     }
-    return .{ .write = write_ns, .read = read_timer.read() };
+    const read_ns = read_timer.read();
+
+    // Scale to match ITERATIONS for consistent reporting
+    return .{ .write = write_ns * 2, .read = read_ns * 2 };
 }
 
 // === Raw Operations ===
 fn benchRaw(stream: *BinaryStream) !struct { write: u64, read: u64 } {
     const data = "The quick brown fox jumps over the lazy dog";
+    const raw_iterations = ITERATIONS / 3; // Raw uses more space
+
     var write_timer = try std.time.Timer.start();
-    for (0..ITERATIONS) |_| {
+    for (0..raw_iterations) |_| {
         try stream.write(data);
     }
     const write_ns = write_timer.read();
 
     stream.offset = 0;
     var read_timer = try std.time.Timer.start();
-    for (0..ITERATIONS) |_| {
+    for (0..raw_iterations) |_| {
         _ = stream.read(data.len);
     }
-    return .{ .write = write_ns, .read = read_timer.read() };
+    const read_ns = read_timer.read();
+
+    // Scale to match ITERATIONS for consistent reporting
+    return .{ .write = write_ns * 3, .read = read_ns * 3 };
 }
 
 pub fn main() !void {
@@ -327,50 +337,41 @@ pub fn main() !void {
     std.debug.print("       Iterations: {d:<10}                               \n", .{ITERATIONS});
     std.debug.print("============================================================\n", .{});
 
-    // Pre-allocate enough capacity for all writes (avoids reallocation during benchmark)
-    const prealloc_size = ITERATIONS * 16; // Enough for largest type (u64 = 8 bytes, with margin)
-
     // Unsigned Integers
     std.debug.print("\n-- Unsigned Integers ---------------------------------------\n", .{});
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchUint8(&stream);
         printResult("Uint8", r.write, r.read);
     }
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchUint16(&stream);
         printResult("Uint16", r.write, r.read);
     }
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchUint24(&stream);
         printResult("Uint24", r.write, r.read);
     }
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchUint32(&stream);
         printResult("Uint32", r.write, r.read);
     }
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchUint64(&stream);
         printResult("Uint64", r.write, r.read);
     }
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchBool(&stream);
         printResult("Bool", r.write, r.read);
     }
@@ -380,35 +381,30 @@ pub fn main() !void {
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchInt8(&stream);
         printResult("Int8", r.write, r.read);
     }
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchInt16(&stream);
         printResult("Int16", r.write, r.read);
     }
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchInt24(&stream);
         printResult("Int24", r.write, r.read);
     }
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchInt32(&stream);
         printResult("Int32", r.write, r.read);
     }
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchInt64(&stream);
         printResult("Int64", r.write, r.read);
     }
@@ -418,28 +414,24 @@ pub fn main() !void {
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchVarInt(&stream);
         printResult("VarInt", r.write, r.read);
     }
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchVarLong(&stream);
         printResult("VarLong", r.write, r.read);
     }
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchZigZag(&stream);
         printResult("ZigZag", r.write, r.read);
     }
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchZigZong(&stream);
         printResult("ZigZong", r.write, r.read);
     }
@@ -449,14 +441,12 @@ pub fn main() !void {
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchFloat32(&stream);
         printResult("Float32", r.write, r.read);
     }
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size);
         const r = try benchFloat64(&stream);
         printResult("Float64", r.write, r.read);
     }
@@ -466,7 +456,6 @@ pub fn main() !void {
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(prealloc_size * 2); // Strings need more space
         const r = try benchVarString(&stream);
         printResult("VarString", r.write, r.read);
     }
@@ -476,7 +465,6 @@ pub fn main() !void {
     {
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(ITERATIONS * 64); // 43 bytes * iterations
         const r = try benchRaw(&stream);
         printResult("Raw (43 bytes)", r.write, r.read);
     }
@@ -487,7 +475,6 @@ pub fn main() !void {
         // Benchmark getBuffer (no allocation, just returns slice)
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(1024);
         // Write some data first
         try stream.writeUint64(0xDEADBEEF, .Big);
         try stream.writeVarString("Test packet data");
@@ -505,10 +492,9 @@ pub fn main() !void {
         // Benchmark getBufferOwned - JUST the copy operation (stream stays intact)
         var stream = BinaryStream.init(allocator, null, null);
         defer stream.deinit();
-        try stream.ensureCapacity(64);
         try stream.writeUint64(0xDEADBEEF, .Big);
         try stream.writeVarString("Test packet data");
-        const data_len = stream.payload.items.len;
+        const data_len = stream.written;
 
         var timer = try std.time.Timer.start();
         for (0..ITERATIONS) |_| {

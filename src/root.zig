@@ -168,6 +168,6 @@ test "Packet" {
     std.debug.print("Packet ID: {d}\n", .{read_packet_id});
     std.debug.print("Test String: {s}\n", .{read_string});
     std.debug.print("Long String: {s}\n", .{read_long_string});
-    std.debug.print("Total bytes in stream: {d}\n", .{stream.payload.items.len});
+    std.debug.print("Total bytes in stream: {d}\n", .{stream.written});
     std.debug.print("-------------------------------\n", .{});
 }
