@@ -6,7 +6,7 @@
 <p align="center" style="color: #ffffffff; font-size: 48px; padding-top: 10%;"> Instalation  </p> 
 
 ```sh
-zig fetch --save git+https://github.com/SanctumTerra/BinaryStream#master
+zig fetch --save git+https://github.com/tecton-mc/BinaryStream#master
 ```
 
 <p> Now we add it to build.zig </p>
