@@ -35,7 +35,7 @@ pub const Float32 = struct {
 
 test "Float32 read/write" {
     std.debug.print("Running test: Float32 read/write\n", .{});
-    var buffer: [10]u8 = [_]u8{0} ** 10;
+    var buffer: [10]u8 = @splat(0);
     var stream = BinaryStream.init(std.testing.allocator, &buffer, 0);
     defer stream.deinit();
 

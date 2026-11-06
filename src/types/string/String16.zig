@@ -27,7 +27,7 @@ pub const String16 = struct {
 
 test "String16 read/write" {
     std.debug.print("Running test: String16 read/write\n", .{});
-    var buffer: [100]u8 = [_]u8{0} ** 100;
+    var buffer: [100]u8 = @splat(0);
     var stream = BinaryStream.init(std.testing.allocator, &buffer, 0);
     defer stream.deinit();
 

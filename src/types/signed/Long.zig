@@ -15,7 +15,7 @@ pub const Long = struct {
 
 test "Long read/write" {
     std.debug.print("Running test: Long read/write\n", .{});
-    var buffer: [10]u8 = [_]u8{0} ** 10;
+    var buffer: [10]u8 = @splat(0);
     var stream = BinaryStream.init(std.testing.allocator, &buffer, 0);
     defer stream.deinit();
 

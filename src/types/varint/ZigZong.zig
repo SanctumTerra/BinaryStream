@@ -31,7 +31,7 @@ pub const ZigZong = struct {
 
 test "ZigZong read/write" {
     std.debug.print("Running test: ZigZong read/write\n", .{});
-    var buffer: [20]u8 = [_]u8{0} ** 20;
+    var buffer: [20]u8 = @splat(0);
     var stream = BinaryStream.init(std.testing.allocator, &buffer, 0);
     defer stream.deinit();
 
